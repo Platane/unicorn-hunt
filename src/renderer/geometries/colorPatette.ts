@@ -1,7 +1,7 @@
 export const createColorPalette = () => {
   const canvas = document.createElement("canvas");
   canvas.width = 8;
-  canvas.height = 32;
+  canvas.height = 4;
   const ctx = canvas.getContext("2d")!;
 
   for (let i = 8; i--;) {
@@ -21,8 +21,8 @@ export const createColorPalette = () => {
 
   canvas.style.position = "absolute";
   canvas.style.bottom = "0";
-  canvas.style.left = "0";
-  canvas.style.width = "160px";
+  canvas.style.right = "0";
+  canvas.style.width = "64px";
   canvas.style.imageRendering = "pixelated";
   document.body.appendChild(canvas);
 

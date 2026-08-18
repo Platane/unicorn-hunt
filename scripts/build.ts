@@ -54,8 +54,8 @@ await $`bunx google-closure-compiler ${[
   "--js_output_file", ".tmp/closure-out.js",
   "--externs", "scripts/externs.js",
   "--compilation_level", "ADVANCED",
-  "--language_in", "ECMASCRIPT_NEXT",
-  "--language_out", "ECMASCRIPT_2020",
+  "--language_in", "ECMASCRIPT_2021",
+  "--language_out", "ECMASCRIPT_2021",
   "--warning_level", "QUIET",
 ]}`
 js = await Bun.file(tmpDir + "/closure-out.js").text();

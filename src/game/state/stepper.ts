@@ -33,3 +33,9 @@ export const step = (world: WorldSnapshot, inputs: (PlayerInput & { playerId: st
 
   return world;
 };
+
+export const createInitialState = (): WorldSnapshot => ({
+  generation: 0,
+  seed: 0 | (Math.random() * (1 << 16)),
+  players: [],
+});

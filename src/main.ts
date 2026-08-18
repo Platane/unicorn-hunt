@@ -1,58 +1,77 @@
 import "./global.css";
-import Wavedash from "@wvdsh/sdk-js";
 import { createGameSync } from "./game/state/sync";
 import { mat4, quat, vec3, vec4 } from "gl-matrix";
-import { GenericId } from "convex/values";
-import { PlayerInput } from "./game/state/types";
 import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
 import { hashInt } from "./utils/hash";
+import { createInitialState } from "./game/state/stepper";
+import type { WavedashSDK } from "@wvdsh/sdk-js";
+
+let playerId = "me";
+let state: ReturnType<typeof createGameSync> | undefined;
+const users = [{ userId: playerId, username: playerId } as any];
+
+const Wavedash = window.Wavedash as WavedashSDK | undefined;
+
+let renderer: Awaited<ReturnType<typeof createRenderer>>;
 
 // init game renderer
-const renderer = await createRenderer(c);
-window.onresize = () =>
-  renderer.resize(c.clientWidth, c.clientHeight, window.devicePixelRatio || 1);
-(window as any).onresize();
+createRenderer(c).then((r) => {
+  renderer = r;
 
-Wavedash.init({ debug: true });
+  window.onresize = () =>
+    renderer.resize(c.clientWidth, c.clientHeight, window.devicePixelRatio || 1);
+  (window as any).onresize();
 
-let users: { userAvatarUrl?: string; userId: GenericId<"users">; username: string }[] = [];
-let state: ReturnType<typeof createGameSync> | undefined;
-Wavedash.on(Wavedash.Events.LOBBY_JOINED, async (p) => {
-  const joinUrl =
-    (await Wavedash.getLobbyInviteLink(false)).data ??
-    // dev fallback: getLobbyInviteLink needs the wavedash parent frame
-    location.origin + location.pathname + "?lobbyId=" + p.lobbyId;
+  if (!Wavedash) {
+    state = createGameSync(
+      {
+        getLobbyHostId: () => null,
+        readP2PMessageFromChannel: () => null,
+        sendP2PMessage: () => true,
+        broadcastP2PMessage: () => true,
+      },
+      "",
+      playerId,
+      createInitialState(),
+    );
 
-  console.log("invite:", joinUrl);
+    createKeyboardController(state.registerInput);
+    loop();
+  } else {
+    Wavedash.init({ debug: true });
 
-  users.length = 0;
-  users.push(...p.users);
+    playerId = Wavedash.getUserId();
 
-  const s0 =
-    p.hostId === Wavedash.getUserId()
-      ? {
-          generation: 0,
-          seed: 0 | (Math.random() * (1 << 16)),
-          players: users.map((u, i) => ({
-            ...u,
-            id: u.userId,
-            direction: new Float32Array([0, 1]),
-            position: new Float32Array([i * 0.1, 0]),
-          })),
-          inputs: {} as Record<string, PlayerInput>,
-        }
-      : undefined;
+    Wavedash.on(Wavedash.Events.LOBBY_JOINED, async (p) => {
+      const joinUrl =
+        (await Wavedash.getLobbyInviteLink(false)).data ??
+        location.origin + location.pathname + "?lobbyId=" + p.lobbyId;
 
-  state = createGameSync(p.lobbyId, s0);
-  createKeyboardController(state.registerInput);
-  loop();
-});
+      console.log("invite:", joinUrl);
 
-Wavedash.on(Wavedash.Events.LOBBY_USERS_UPDATED, (p) => {
-  console.log(p);
-  if (p.changeType === "LEFT") users = users.filter((u) => u.userId !== p.userId);
-  if (p.changeType === "JOINED") users = [...users, p];
+      users.length = 0;
+      users.push(...p.users);
+
+      const s0 = p.hostId === playerId ? createInitialState() : undefined;
+
+      state = createGameSync(Wavedash, p.lobbyId, playerId, s0);
+      createKeyboardController(state.registerInput);
+      loop();
+    });
+
+    Wavedash.on(Wavedash.Events.LOBBY_USERS_UPDATED, (p) => {
+      const i = users.findIndex((u) => u.userId === p.userId);
+      if (p.changeType === "LEFT" && i >= 0) users.splice(i, 1);
+      if (p.changeType === "JOINED" && i === -1) users.push(p);
+    });
+
+    const lobbyId: any =
+      Wavedash.getLaunchParams().lobby ?? location.search.match(/lobbyId=([^&]+)/)?.[1];
+
+    if (lobbyId) Wavedash.joinLobby(lobbyId);
+    else Wavedash.createLobby(Wavedash.LobbyVisibility.PUBLIC, 4);
+  }
 });
 
 // scratch, reused every frame
@@ -72,7 +91,7 @@ const loop = () => {
           .map((u) => ({
             id: u.userId,
             direction: new Float32Array([0, 1]),
-            position: new Float32Array([0, Math.max(...s0.players.map((p) => p.position[1]))]),
+            position: new Float32Array([0, Math.max(0, ...s0.players.map((p) => p.position[1]))]),
           })),
       ];
     }
@@ -88,7 +107,7 @@ const loop = () => {
     users
       .map((u) => {
         const p = state?.snapshots[0]?.players.find((p) => p.id === u.userId);
-        return `- ${u.userId === Wavedash.getUserId() ? "🤠" : " "} ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
+        return `- ${u.userId === playerId ? "🤠" : " "} ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
       })
       .join("\n");
 
@@ -97,7 +116,6 @@ const loop = () => {
     // - lerp world with whatever is currently rendered
     const s0 = state.snapshots[0];
     if (s0) {
-      const playerId = Wavedash.getUserId();
       const player = s0.players.find((p) => p.id === playerId)!;
 
       mat4.lookAt(
@@ -134,11 +152,6 @@ const loop = () => {
 
   requestAnimationFrame(loop);
 };
-
-const lobbyId: any =
-  Wavedash.getLaunchParams().lobby ?? location.search.match(/lobbyId=([^&]+)/)?.[1];
-if (lobbyId) Wavedash.joinLobby(lobbyId);
-else Wavedash.createLobby(Wavedash.LobbyVisibility.PUBLIC, 4);
 
 // // auto reload
 // {

@@ -1,15 +1,16 @@
-import Wavedash from "@wvdsh/sdk-js";
 import { PlayerInput, WorldSnapshot } from "./types";
 import { STEP_DURATION, step as worldStep } from "./stepper";
 import { vec2 } from "gl-matrix";
-
-type Id = string;
+import type { WavedashSDK } from "@wvdsh/sdk-js";
 
 const inputMessage = new Uint8Array(4);
 
-export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
-  Wavedash.getUserId();
-
+export const createGameSync = (
+  net: NetworkMesh,
+  lobbyId: string,
+  playerId: string,
+  s0?: WorldSnapshot,
+) => {
   // newest first, every entry holds a computed snapshot
   const snapshots: WorldSnapshot[] = s0 ? [s0] : [];
 
@@ -22,8 +23,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
 
   let currentGeneration = 0;
 
-  const playerId = Wavedash.getUserId();
-  const hostId = Wavedash.getLobbyHostId(lobbyId as any) as any;
+  const hostId = net.getLobbyHostId(lobbyId as any) as any;
 
   let order = 0;
 
@@ -34,7 +34,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
 
     // answer to snapshot request
     while (true) {
-      const message = Wavedash.readP2PMessageFromChannel(SNAPSHOT_REQ_CHANNEL);
+      const message = net.readP2PMessageFromChannel(SNAPSHOT_REQ_CHANNEL);
       if (!message) break;
 
       // truncated to 16 bits, echoed back untouched
@@ -43,13 +43,13 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
       const s = snapshots[0];
       if (s) {
         const payload = serializeSnapshot(s, now - startDate, reqDate);
-        Wavedash.sendP2PMessage(message.fromUserId, SNAPSHOT_RES_CHANNEL, true, payload);
+        net.sendP2PMessage(message.fromUserId, SNAPSHOT_RES_CHANNEL, true, payload);
       }
     }
 
     // receive snapshot res
     while (true) {
-      const message = Wavedash.readP2PMessageFromChannel(SNAPSHOT_RES_CHANNEL);
+      const message = net.readP2PMessageFromChannel(SNAPSHOT_RES_CHANNEL);
       if (!message) break;
 
       const { snapshot, duration, reqDate } = deserializeSnapshot(message.payload);
@@ -67,7 +67,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
     // read broadcasted inputs
     // can read inputs from previous frames
     while (true) {
-      const message = Wavedash.readP2PMessageFromChannel(INPUT_CHANNEL);
+      const message = net.readP2PMessageFromChannel(INPUT_CHANNEL);
       if (!message) break;
 
       const input = {
@@ -95,7 +95,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
       inputMessage[0] = lastSnapshotSyncReqDate >> 8;
       inputMessage[1] = lastSnapshotSyncReqDate;
 
-      Wavedash.sendP2PMessage(hostId, SNAPSHOT_REQ_CHANNEL, true, inputMessage, 2);
+      net.sendP2PMessage(hostId, SNAPSHOT_REQ_CHANNEL, true, inputMessage, 2);
     }
 
     //
@@ -138,7 +138,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
     inputMessage[3] = i.angle;
 
     inputs.push(i);
-    Wavedash.broadcastP2PMessage(
+    net.broadcastP2PMessage(
       INPUT_CHANNEL,
       false /* we might want to switch to reliable */,
       inputMessage,
@@ -149,6 +149,11 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
 
   return out;
 };
+
+export type NetworkMesh = Pick<
+  WavedashSDK,
+  "getLobbyHostId" | "readP2PMessageFromChannel" | "sendP2PMessage" | "broadcastP2PMessage"
+>;
 
 const INPUT_CHANNEL = 0;
 const SNAPSHOT_REQ_CHANNEL = 1;
