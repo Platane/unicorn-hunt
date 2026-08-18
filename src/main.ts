@@ -112,10 +112,10 @@ const lobbyId: any =
 if (lobbyId) Wavedash.joinLobby(lobbyId);
 else Wavedash.createLobby(Wavedash.LobbyVisibility.PUBLIC, 4);
 
-// auto reload
-{
-  const content = await fetch("/").then((res) => res.text());
-  while (content === (await fetch("/").then((res) => res.text())))
-    await new Promise((r) => setTimeout(r, 2_000));
-  // window.location.reload();
-}
+// // auto reload
+// {
+//   const content = await fetch("/").then((res) => res.text());
+//   while (content === (await fetch("/").then((res) => res.text())))
+//     await new Promise((r) => setTimeout(r, 2_000));
+//   // window.location.reload();
+// }
