@@ -8,6 +8,7 @@ import { createSpriteSheet } from "./geometries/sprite";
 import { createRecursiveSphere } from "./geometries/recursiveSphere";
 import { getFlatShadingNormals } from "../utils/geometry-normals";
 import { createColorPalette } from "./geometries/colorPatette";
+import { createGround } from "./geometries/ground";
 
 export const MAX_ENTITIES = 1 << 10;
 
@@ -227,6 +228,46 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
   };
 
   //
+  // ground
+  //
+  let groundVertexCount = 0;
+  const groundVao = gl.createVertexArray();
+  gl.bindVertexArray(groundVao);
+
+  {
+    const { positions, normals, colorIndex } = createGround();
+    groundVertexCount = positions.length / 3;
+
+    const a_position = gl.getAttribLocation(meshProgram, "a_position");
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_position);
+    gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+    const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_normal);
+    gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
+
+    const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
+    const colorIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_colorIndex);
+    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
+
+    gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix1"), 1, 0, 0, 0);
+    gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix2"), 0, 1, 0, 0);
+    gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix3"), 0, 0, 1, 0);
+    gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix4"), 0, 0, 0, 1);
+
+    gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_colorPalette"), 0, 0, 0, 0);
+  }
+
+  //
   //
   //
 
@@ -239,15 +280,14 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   const draw = () => {
+    //
+    // update buffer
+
     gl.bindBufferBase(gl.UNIFORM_BUFFER, UBO_BINDING_POINT_CAMERA, cameraUBOBuffer);
     gl.bufferData(gl.UNIFORM_BUFFER, cameraUBOArray, gl.DYNAMIC_DRAW);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, ballEntitiesBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, ballEntitiesData, gl.DYNAMIC_DRAW, 0, ballsEntities.count * 20);
-
-    gl.useProgram(meshProgram);
-    gl.bindVertexArray(ballVao);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, spriteEntitiesBuffer);
     gl.bufferData(
@@ -257,6 +297,16 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
       0,
       spritesEntities.count * 20,
     );
+
+    //
+    // draw
+
+    gl.useProgram(meshProgram);
+    gl.bindVertexArray(groundVao);
+    gl.drawArrays(gl.TRIANGLES, 0, groundVertexCount);
+
+    gl.bindVertexArray(ballVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
 
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
