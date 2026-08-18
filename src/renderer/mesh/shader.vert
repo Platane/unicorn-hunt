@@ -12,7 +12,7 @@ uniform sampler2D u_colorPalettesTexture;
 
 in vec3 a_position;
 in vec3 a_normal;
-in float a_colorIndex;
+in uint a_colorIndex;
 
 in vec4 a_objectMatrix1;
 in vec4 a_objectMatrix2;

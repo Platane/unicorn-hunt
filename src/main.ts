@@ -9,7 +9,7 @@ import { createKeyboardController } from "./game/state/controller-keyboard";
 import { hashInt } from "./utils/hash";
 
 // init game renderer
-const renderer = createRenderer(c);
+const renderer = await createRenderer(c);
 window.onresize = () =>
   renderer.resize(c.clientWidth, c.clientHeight, window.devicePixelRatio || 1);
 (window as any).onresize();
@@ -117,12 +117,13 @@ const loop = () => {
           q,
           v,
         );
+        renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
         renderer.ballsEntities.count++;
       }
 
       renderer.spritesEntities.count = s0.players.length;
       s0.players.forEach((p, i) => {
-        vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 1, 1);
+        vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 0.25, 1);
 
         vec3.set(v, p.position[0], p.position[1], 0);
         mat4.fromRotationTranslation(renderer.spritesEntities.items[i].transform, q, v);

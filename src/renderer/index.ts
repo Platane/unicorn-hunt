@@ -7,6 +7,7 @@ import { createProgram } from "./utils";
 import { createSpriteSheet } from "./geometries/sprite";
 import { createRecursiveSphere } from "./geometries/recursiveSphere";
 import { getFlatShadingNormals } from "../utils/geometry-normals";
+import { createColorPalette } from "./geometries/colorPatette";
 
 export const MAX_ENTITIES = 1 << 10;
 
@@ -23,7 +24,7 @@ const TEXTURE_INDEX_COLOR_PALETTES = 1;
  *   - caller mutate viewMatrix
  *   - draw
  */
-export const createRenderer = (canvas: HTMLCanvasElement) => {
+export const createRenderer = async (canvas: HTMLCanvasElement) => {
   const gl = canvas.getContext("webgl2")!;
 
   const cameraUBOArray = new Float32Array(16 + 16 + 4);
@@ -149,8 +150,14 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
   gl.bindVertexArray(ballVao);
 
   {
-    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 3 }));
+    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 4 }));
     const normals = getFlatShadingNormals(positions);
+    const colorIndex = new Uint8Array(
+      Array.from({ length: positions.length / (3 * 3) }, () => {
+        const a = Math.floor(Math.random() * 8);
+        return [a, a, a];
+      }).flat(),
+    );
 
     ballVertexCount = positions.length / 3;
 
@@ -171,9 +178,9 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
     const colorIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(positions.length / 3), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(a_colorIndex);
-    gl.vertexAttribPointer(a_colorIndex, 1, gl.UNSIGNED_INT, false, 0, 0);
+    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
   }
 
   const ballEntitiesBuffer = gl.createBuffer();
@@ -194,23 +201,14 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
   }
 
   {
-    // placeholder, all black for now
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + TEXTURE_INDEX_COLOR_PALETTES);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      1,
-      1,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      new Uint8Array([0, 0, 0, 255]),
-    );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, createColorPalette());
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
     gl.useProgram(meshProgram);
     gl.uniform1i(
