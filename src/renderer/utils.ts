@@ -7,13 +7,13 @@ export const createProgram = (
   gl.shaderSource(vertexShader, vertexShaderCode);
   gl.compileShader(vertexShader);
   if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS))
-    throw "vertex shader error: " + gl.getShaderInfoLog(vertexShader) || "";
+    throw "vertex shader error: " + gl.getShaderInfoLog(vertexShader);
 
   const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
   gl.shaderSource(fragmentShader, fragmentShaderCode);
   gl.compileShader(fragmentShader);
   if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS))
-    throw "fragment shader error: " + gl.getShaderInfoLog(fragmentShader) || "";
+    throw "fragment shader error: " + gl.getShaderInfoLog(fragmentShader);
 
   const program = gl.createProgram()!;
   gl.attachShader(program, vertexShader);

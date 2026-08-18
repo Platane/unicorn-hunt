@@ -6,6 +6,7 @@ import { GenericId } from "convex/values";
 import { PlayerInput } from "./game/state/types";
 import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
+import { hashInt } from "./utils/hash";
 
 // init game renderer
 const renderer = createRenderer(c);
@@ -54,6 +55,10 @@ Wavedash.on(Wavedash.Events.LOBBY_USERS_UPDATED, (p) => {
   if (p.changeType === "JOINED") users = [...users, p];
 });
 
+// scratch, reused every frame
+const q = quat.identity(new Float32Array(4) as quat);
+const v = new Float32Array(3) as vec3;
+
 const loop = () => {
   if (!state) return;
 
@@ -83,7 +88,7 @@ const loop = () => {
     users
       .map((u) => {
         const p = state?.snapshots[0]?.players.find((p) => p.id === u.userId);
-        return `- ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
+        return `- ${u.userId === Wavedash.getUserId() ? "🤠" : " "} ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
       })
       .join("\n");
 
@@ -92,15 +97,33 @@ const loop = () => {
     // - lerp world with whatever is currently rendered
     const s0 = state.snapshots[0];
     if (s0) {
-      mat4.lookAt(renderer.viewMatrix, [0, 0, 10], [0, 0, 0], [0, 1, 0]);
+      const playerId = Wavedash.getUserId();
+      const player = s0.players.find((p) => p.id === playerId)!;
+
+      mat4.lookAt(
+        renderer.viewMatrix,
+        [0, 0, 10],
+        [player.position[0] * 0.1, player.position[1], 0],
+        [0, 1, 0],
+      );
+
+      renderer.ballsEntities.count = 0;
+      while (renderer.ballsEntities.count < 100) {
+        const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
+        const y = hashInt(renderer.ballsEntities.count) % 30;
+        vec3.set(v, x, y, 0);
+        mat4.fromRotationTranslation(
+          renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
+          q,
+          v,
+        );
+        renderer.ballsEntities.count++;
+      }
 
       renderer.spritesEntities.count = s0.players.length;
       s0.players.forEach((p, i) => {
         vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 1, 1);
 
-        const q = new Float32Array(4);
-        const v = new Float32Array(3);
-        quat.identity(q);
         vec3.set(v, p.position[0], p.position[1], 0);
         mat4.fromRotationTranslation(renderer.spritesEntities.items[i].transform, q, v);
       });

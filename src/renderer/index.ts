@@ -1,14 +1,19 @@
 import { mat4, vec3, vec4 } from "gl-matrix";
+import meshFragmentShaderCode from "./mesh/shader.frag" with { type: "text" };
+import meshVertexShaderCode from "./mesh/shader.vert" with { type: "text" };
 import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" };
 import spriteVertexShaderCode from "./sprite/shader.vert" with { type: "text" };
 import { createProgram } from "./utils";
 import { createSpriteSheet } from "./geometries/sprite";
+import { createRecursiveSphere } from "./geometries/recursiveSphere";
+import { getFlatShadingNormals } from "../utils/geometry-normals";
 
 export const MAX_ENTITIES = 1 << 10;
 
 const UBO_BINDING_POINT_CAMERA = 1;
 
 const TEXTURE_INDEX_SPRITE_SHEET = 0;
+const TEXTURE_INDEX_COLOR_PALETTES = 1;
 
 /**
  * sprite renderer
@@ -42,6 +47,9 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     mat4.perspective(projectionMatrix, Math.PI / 4, aspect, 0.1, 2000);
   };
 
+  //
+  // sprite
+  //
   const spriteProgram = createProgram(gl, spriteVertexShaderCode, spriteFragmentShaderCode);
 
   gl.uniformBlockBinding(
@@ -75,7 +83,6 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     const a_position = gl.getAttribLocation(spriteProgram, "a_position");
     const a_texCoord = gl.getAttribLocation(spriteProgram, "a_texCoord");
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
     gl.enableVertexAttribArray(a_position);
     gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 16, 0); // read interleaved data, each vertex have 16 bytes ( (2+2) * 4 bytes for float32 ), position offset is 0
 
@@ -109,7 +116,6 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     count: 0,
   };
 
-  const spriteSheetLocation = gl.getUniformLocation(spriteProgram, "u_colorTexture");
   {
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + TEXTURE_INDEX_SPRITE_SHEET);
@@ -119,15 +125,108 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    gl.useProgram(spriteProgram);
+    gl.uniform1i(
+      gl.getUniformLocation(spriteProgram, "u_colorTexture"),
+      TEXTURE_INDEX_SPRITE_SHEET,
+    );
   }
 
   //
+  // ball
   //
-  //
+  const meshProgram = createProgram(gl, meshVertexShaderCode, meshFragmentShaderCode);
 
-  // const meshProgram = createProgram(gl, meshVertexShaderCode, meshFragmentShaderCode);
+  gl.uniformBlockBinding(
+    meshProgram,
+    gl.getUniformBlockIndex(meshProgram, "Camera"),
+    UBO_BINDING_POINT_CAMERA,
+  );
 
-  // one vao per model
+  let ballVertexCount = 0;
+  const ballVao = gl.createVertexArray();
+  gl.bindVertexArray(ballVao);
+
+  {
+    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 3 }));
+    const normals = getFlatShadingNormals(positions);
+
+    ballVertexCount = positions.length / 3;
+
+    const a_position = gl.getAttribLocation(meshProgram, "a_position");
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_position);
+    gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+    const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_normal);
+    gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
+
+    const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
+    const colorIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(positions.length / 3), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_colorIndex);
+    gl.vertexAttribPointer(a_colorIndex, 1, gl.UNSIGNED_INT, false, 0, 0);
+  }
+
+  const ballEntitiesBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, ballEntitiesBuffer);
+  byteOffset = 0;
+  for (const attributeName of [
+    "a_objectMatrix1",
+    "a_objectMatrix2",
+    "a_objectMatrix3",
+    "a_objectMatrix4",
+    "a_colorPalette",
+  ]) {
+    const location = gl.getAttribLocation(meshProgram, attributeName);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
+    gl.vertexAttribDivisor(location, 1);
+    byteOffset += 16;
+  }
+
+  {
+    // placeholder, all black for now
+    const texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + TEXTURE_INDEX_COLOR_PALETTES);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 255]),
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    gl.useProgram(meshProgram);
+    gl.uniform1i(
+      gl.getUniformLocation(meshProgram, "u_colorPalettesTexture"),
+      TEXTURE_INDEX_COLOR_PALETTES,
+    );
+  }
+
+  const ballEntitiesData = new Float32Array(MAX_ENTITIES * 4 * 5);
+  const ballsEntities = {
+    items: Array.from({ length: MAX_ENTITIES }, (_, i) => ({
+      transform: new Float32Array(ballEntitiesData.buffer, i * 16 * 5, 16) as mat4,
+      colorPalette: new Float32Array(ballEntitiesData.buffer, i * 16 * 5 + 16 * 4, 4) as vec4,
+    })),
+    count: 0,
+  };
 
   //
   //
@@ -145,6 +244,13 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
     gl.bindBufferBase(gl.UNIFORM_BUFFER, UBO_BINDING_POINT_CAMERA, cameraUBOBuffer);
     gl.bufferData(gl.UNIFORM_BUFFER, cameraUBOArray, gl.DYNAMIC_DRAW);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballEntitiesBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, ballEntitiesData, gl.DYNAMIC_DRAW, 0, ballsEntities.count * 20);
+
+    gl.useProgram(meshProgram);
+    gl.bindVertexArray(ballVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
+
     gl.bindBuffer(gl.ARRAY_BUFFER, spriteEntitiesBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
@@ -156,9 +262,8 @@ export const createRenderer = (canvas: HTMLCanvasElement) => {
 
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
-    gl.uniform1i(spriteSheetLocation, TEXTURE_INDEX_SPRITE_SHEET);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, spritesEntities.count);
   };
 
-  return { resize, viewMatrix, spritesEntities, draw };
+  return { resize, viewMatrix, spritesEntities, ballsEntities, draw };
 };
