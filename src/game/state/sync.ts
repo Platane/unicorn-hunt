@@ -1,13 +1,11 @@
 import Wavedash from "@wvdsh/sdk-js";
-import { PlayerInput, WorldSnapshot } from ".";
-import { step as worldStep } from "./stepper";
+import { PlayerInput, WorldSnapshot } from "./types";
+import { STEP_DURATION, step as worldStep } from "./stepper";
 import { vec2 } from "gl-matrix";
 
 type Id = string;
 
-const inputMessage = new Uint8Array(3);
-
-export const STEP_DURATION = 1000 / 20;
+const inputMessage = new Uint8Array(4);
 
 export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
   Wavedash.getUserId();
@@ -15,7 +13,7 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
   // newest first, every entry holds a computed snapshot
   const snapshots: WorldSnapshot[] = s0 ? [s0] : [];
 
-  const inputs: (PlayerInput & { generation: number; playerId: Id })[] = [];
+  const inputs: (PlayerInput & { generation: number; order: number; playerId: string })[] = [];
 
   let lastSnapshotSyncResDate = 0;
   let lastSnapshotSyncReqDate = 0;
@@ -27,35 +25,12 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
   const playerId = Wavedash.getUserId();
   const hostId = Wavedash.getLobbyHostId(lobbyId as any) as any;
 
+  let order = 0;
+
   const step = () => {
     const now = Date.now();
 
     if (hostId === playerId) out.hostLatency = 0;
-
-    // broadcast player input for this frame
-    // only if different from previous frame
-    if (
-      snapshots[0]?.inputs[playerId] &&
-      !inputEquals(snapshots[0].inputs[playerId], snapshots[1]?.inputs[playerId])
-    ) {
-      const input = {
-        ...snapshots[0].inputs[playerId],
-        generation: snapshots[0].generation,
-        playerId: playerId,
-      };
-
-      inputMessage[0] = input.generation >> 8;
-      inputMessage[1] = input.generation;
-
-      inputMessage[2] = input.angle;
-
-      inputs.push(input);
-      Wavedash.broadcastP2PMessage(
-        INPUT_CHANNEL,
-        false /* we might want to switch to reliable */,
-        inputMessage,
-      );
-    }
 
     // answer to snapshot request
     while (true) {
@@ -96,7 +71,8 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
       if (!message) break;
 
       const input = {
-        angle: message.payload[2],
+        angle: message.payload[3],
+        order: message.payload[2],
         generation: (message.payload[0] << 8) + message.payload[1],
         playerId: message.fromUserId,
       };
@@ -127,16 +103,13 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
 
     // compute next
 
-    currentGeneration = Math.max(currentGeneration, (now - startDate) / STEP_DURATION);
+    currentGeneration = Math.max(currentGeneration, (now - startDate) / 1000 / STEP_DURATION);
     while (snapshots[0] && snapshots[0].generation < Math.floor(currentGeneration)) {
-      // compute snapshot i-1 from snapshot i
+      const frameInputs = inputs
+        .filter((i) => i.generation === snapshots[0].generation)
+        .sort((a, b) => a.order - b.order);
 
-      // apply inputs
-      for (const ii of inputs)
-        if (ii.generation === snapshots[0].generation) snapshots[0].inputs[ii.playerId] = ii;
-
-      const w = structuredClone(snapshots[0]);
-      worldStep(w);
+      const w = worldStep(snapshots[0], frameInputs);
 
       snapshots.unshift(w);
     }
@@ -147,7 +120,32 @@ export const createGameSync = (lobbyId: string, s0?: WorldSnapshot) => {
       inputs.shift();
   };
 
-  const out = { step, snapshots, hostLatency: 100 };
+  const registerInput = (input: PlayerInput) => {
+    const i = {
+      ...input,
+      generation: Math.floor(
+        Math.max(currentGeneration, (Date.now() - startDate) / 1000 / STEP_DURATION),
+      ),
+      order: order++,
+      playerId,
+    };
+
+    inputMessage[0] = i.generation >> 8;
+    inputMessage[1] = i.generation;
+
+    inputMessage[2] = i.order;
+
+    inputMessage[3] = i.angle;
+
+    inputs.push(i);
+    Wavedash.broadcastP2PMessage(
+      INPUT_CHANNEL,
+      false /* we might want to switch to reliable */,
+      inputMessage,
+    );
+  };
+
+  const out = { step, registerInput, snapshots, hostLatency: 100 };
 
   return out;
 };
@@ -156,7 +154,7 @@ const INPUT_CHANNEL = 0;
 const SNAPSHOT_REQ_CHANNEL = 1;
 const SNAPSHOT_RES_CHANNEL = 2;
 
-const inputEquals = (a: PlayerInput | undefined, b: PlayerInput | undefined) =>
+export const inputEquals = (a: PlayerInput | undefined, b: PlayerInput | undefined) =>
   a?.angle === b?.angle;
 
 const encoder = new TextEncoder();

@@ -4,7 +4,6 @@ export type WorldSnapshot = {
   seed: number; // determine the object placement
   generation: number;
   players: Player[];
-  inputs: Record<string | number, PlayerInput>;
 };
 export type Player = {
   id: string;

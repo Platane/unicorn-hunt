@@ -3,8 +3,9 @@ import Wavedash from "@wvdsh/sdk-js";
 import { createGameSync } from "./game/state/sync";
 import { mat4, quat, vec3, vec4 } from "gl-matrix";
 import { GenericId } from "convex/values";
-import { PlayerInput } from "./game/state";
+import { PlayerInput } from "./game/state/types";
 import { createRenderer } from "./renderer";
+import { createKeyboardController } from "./game/state/controller-keyboard";
 
 // init game renderer
 const renderer = createRenderer(c);
@@ -43,6 +44,7 @@ Wavedash.on(Wavedash.Events.LOBBY_JOINED, async (p) => {
       : undefined;
 
   state = createGameSync(p.lobbyId, s0);
+  createKeyboardController(state.registerInput);
   loop();
 });
 
@@ -86,6 +88,8 @@ const loop = () => {
       .join("\n");
 
   {
+    // TODO:
+    // - lerp world with whatever is currently rendered
     const s0 = state.snapshots[0];
     if (s0) {
       mat4.lookAt(renderer.viewMatrix, [0, 0, 10], [0, 0, 0], [0, 1, 0]);
