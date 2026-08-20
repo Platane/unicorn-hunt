@@ -8,7 +8,7 @@ import { createSpriteSheet } from "./geometries/sprite";
 import { createRecursiveSphere } from "./geometries/recursiveSphere";
 import { getFlatShadingNormals } from "../utils/geometry-normals";
 import { createColorPalette } from "./geometries/colorPatette";
-import { createGround } from "./geometries/ground";
+import { createGroundGeometry, updateGroundGeometry } from "./geometries/ground";
 
 export const MAX_ENTITIES = 1 << 10;
 
@@ -152,7 +152,8 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
 
   {
     const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 4 }));
-    const normals = getFlatShadingNormals(positions);
+    const normals = new Float32Array(positions.length);
+    getFlatShadingNormals(normals, positions);
     const colorIndex = new Uint8Array(
       Array.from({ length: positions.length / (3 * 3) }, () => {
         const a = Math.floor(Math.random() * 8);
@@ -230,32 +231,26 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
   //
   // ground
   //
-  let groundVertexCount = 0;
   const groundVao = gl.createVertexArray();
   gl.bindVertexArray(groundVao);
-
+  const groundBuffer = {
+    positions: gl.createBuffer(),
+    normals: gl.createBuffer(),
+    colorIndex: gl.createBuffer(),
+  };
   {
-    const { positions, normals, colorIndex } = createGround();
-    groundVertexCount = positions.length / 3;
-
     const a_position = gl.getAttribLocation(meshProgram, "a_position");
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.positions);
     gl.enableVertexAttribArray(a_position);
     gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
 
     const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
-    const normalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.normals);
     gl.enableVertexAttribArray(a_normal);
     gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
 
     const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
-    const colorIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.colorIndex);
     gl.enableVertexAttribArray(a_colorIndex);
     gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
 
@@ -303,7 +298,7 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
 
     gl.useProgram(meshProgram);
     gl.bindVertexArray(groundVao);
-    gl.drawArrays(gl.TRIANGLES, 0, groundVertexCount);
+    gl.drawArrays(gl.TRIANGLES, 0, groundGeometry.vertexCount);
 
     gl.bindVertexArray(ballVao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
@@ -313,5 +308,37 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, spritesEntities.count);
   };
 
-  return { resize, viewMatrix, spritesEntities, ballsEntities, draw };
+  const groundGeometry = createGroundGeometry();
+  const updateGround = (seed: number, range: [number, number]) => {
+    updateGroundGeometry(groundGeometry, seed, range);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.positions);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      groundGeometry.positions,
+      gl.STATIC_DRAW,
+      0,
+      groundGeometry.vertexCount * 3,
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.normals);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      groundGeometry.normals,
+      gl.STATIC_DRAW,
+      0,
+      groundGeometry.vertexCount * 3,
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.colorIndex);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      groundGeometry.colorIndex,
+      gl.STATIC_DRAW,
+      0,
+      groundGeometry.vertexCount,
+    );
+  };
+
+  return { resize, updateGround, viewMatrix, spritesEntities, ballsEntities, draw };
 };

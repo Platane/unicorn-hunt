@@ -1,11 +1,11 @@
 export const createColorPalette = () => {
   const canvas = document.createElement("canvas");
-  canvas.width = 8;
+  canvas.width = 16;
   canvas.height = 4;
   const ctx = canvas.getContext("2d")!;
 
-  for (let i = 8; i--;) {
-    ctx.fillStyle = `hsl(${i * 7},80%,50%)`;
+  for (let i = 16; i--;) {
+    ctx.fillStyle = `hsl(${120 + i * 4.8},80%,50%)`;
     ctx.fillRect(i, 0, 1, 1);
   }
 

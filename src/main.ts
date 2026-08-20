@@ -78,22 +78,36 @@ createRenderer(c).then((r) => {
 const q = quat.identity(new Float32Array(4) as quat);
 const v = new Float32Array(3) as vec3;
 
+let groundOrigin = -10;
+
 const loop = () => {
   if (!state) return;
 
-  {
-    const s0 = state.snapshots[0];
-    if (s0) {
-      s0.players = [
-        ...s0.players,
-        ...users
-          .filter((u) => !s0.players.some((p) => p.id === u.userId))
-          .map((u) => ({
-            id: u.userId,
-            direction: new Float32Array([0, 1]),
-            position: new Float32Array([0, Math.max(0, ...s0.players.map((p) => p.position[1]))]),
-          })),
-      ];
+  // TODO:
+  // - lerp world with whatever is currently rendered
+  const s0 = state.snapshots[0];
+
+  if (s0) {
+    //
+    // sync players
+    s0.players = [
+      ...s0.players,
+      ...users
+        .filter((u) => !s0.players.some((p) => p.id === u.userId))
+        .map((u) => ({
+          id: u.userId,
+          direction: new Float32Array([0, 1]),
+          position: new Float32Array([0, Math.max(0, ...s0.players.map((p) => p.position[1]))]),
+        })),
+    ];
+
+    //
+    // init ground
+    const player = s0.players.find((p) => p.id === playerId)!;
+
+    if (Math.abs(player.position[1] - groundOrigin) > 8) {
+      groundOrigin = Math.round(player.position[1]);
+      renderer.updateGround(s0.seed, [groundOrigin - 16, groundOrigin + 16]);
     }
   }
 
@@ -111,43 +125,38 @@ const loop = () => {
       })
       .join("\n");
 
-  {
-    // TODO:
-    // - lerp world with whatever is currently rendered
-    const s0 = state.snapshots[0];
-    if (s0) {
-      const player = s0.players.find((p) => p.id === playerId)!;
+  if (s0) {
+    const player = s0.players.find((p) => p.id === playerId)!;
 
-      mat4.lookAt(
-        renderer.viewMatrix,
-        [0, 0, 10],
-        [player.position[0] * 0.1, player.position[1], 0],
-        [0, 1, 0],
+    mat4.lookAt(
+      renderer.viewMatrix,
+      [0, 0, 10],
+      [player.position[0] * 0.1, player.position[1], 0],
+      [0, 1, 0],
+    );
+
+    renderer.ballsEntities.count = 0;
+    while (renderer.ballsEntities.count < 100) {
+      const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
+      const y = hashInt(renderer.ballsEntities.count) % 30;
+      vec3.set(v, x, y, 0);
+      mat4.fromRotationTranslation(
+        renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
+        q,
+        v,
       );
-
-      renderer.ballsEntities.count = 0;
-      while (renderer.ballsEntities.count < 100) {
-        const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
-        const y = hashInt(renderer.ballsEntities.count) % 30;
-        vec3.set(v, x, y, 0);
-        mat4.fromRotationTranslation(
-          renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
-          q,
-          v,
-        );
-        renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
-        renderer.ballsEntities.count++;
-      }
-
-      renderer.spritesEntities.count = s0.players.length;
-      s0.players.forEach((p, i) => {
-        vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 0.25, 1);
-
-        vec3.set(v, p.position[0], p.position[1], 0);
-        mat4.fromRotationTranslation(renderer.spritesEntities.items[i].transform, q, v);
-      });
-      renderer.draw();
+      renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
+      renderer.ballsEntities.count++;
     }
+
+    renderer.spritesEntities.count = s0.players.length;
+    s0.players.forEach((p, i) => {
+      vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 0.25, 1);
+
+      vec3.set(v, p.position[0], p.position[1], 0.01);
+      mat4.fromRotationTranslation(renderer.spritesEntities.items[i].transform, q, v);
+    });
+    renderer.draw();
   }
 
   requestAnimationFrame(loop);

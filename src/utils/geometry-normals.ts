@@ -6,9 +6,10 @@ const b: vec3 = [0, 0, 0];
 const c: vec3 = [0, 0, 0];
 const n: vec3 = [0, 0, 0];
 
-export const getFlatShadingNormals = (positions: ArrayLike<number>) => {
-  const normals = new Float32Array(positions.length);
-
+export const getFlatShadingNormals = (
+  normals: number[] | Float32Array,
+  positions: ArrayLike<number>,
+) => {
   for (let i = 0; i < positions.length / 3; i += 3) {
     const ak = (i + 0) * 3;
     const bk = (i + 1) * 3;
@@ -28,6 +29,4 @@ export const getFlatShadingNormals = (positions: ArrayLike<number>) => {
     normals[ak + 1] = normals[bk + 1] = normals[ck + 1] = n[1];
     normals[ak + 2] = normals[bk + 2] = normals[ck + 2] = n[2];
   }
-
-  return normals;
 };
