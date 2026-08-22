@@ -1,11 +1,12 @@
 import "./global.css";
 import { createGameSync } from "./game/state/sync";
-import { mat4, quat, vec3, vec4 } from "gl-matrix";
+import { mat4, quat, vec2, vec3, vec4 } from "gl-matrix";
 import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
 import { hashInt } from "./utils/hash";
 import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
+import { type Map, createMap } from "./game/state/map";
 
 let playerId = "me";
 let state: ReturnType<typeof createGameSync> | undefined;
@@ -79,6 +80,7 @@ const q = quat.identity(new Float32Array(4) as quat);
 const v = new Float32Array(3) as vec3;
 
 let groundOrigin = -10;
+let map: Map;
 
 const loop = () => {
   if (!state) return;
@@ -101,13 +103,17 @@ const loop = () => {
         })),
     ];
 
+    if (!map) {
+      map = createMap(s0.seed);
+    }
+
     //
     // init ground
     const player = s0.players.find((p) => p.id === playerId)!;
 
     if (Math.abs(player.position[1] - groundOrigin) > 8) {
       groundOrigin = Math.round(player.position[1]);
-      renderer.updateGround(s0.seed, [groundOrigin - 16, groundOrigin + 16]);
+      renderer.updateGround(map, [groundOrigin - 16, groundOrigin + 16]);
     }
   }
 

@@ -1,4 +1,4 @@
-import { mat4, vec3, vec4 } from "gl-matrix";
+import { mat4, quat, vec3, vec4 } from "gl-matrix";
 import meshFragmentShaderCode from "./mesh/shader.frag" with { type: "text" };
 import meshVertexShaderCode from "./mesh/shader.vert" with { type: "text" };
 import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" };
@@ -9,6 +9,7 @@ import { createRecursiveSphere } from "./geometries/recursiveSphere";
 import { getFlatShadingNormals } from "../utils/geometry-normals";
 import { createColorPalette } from "./geometries/colorPatette";
 import { createGroundGeometry, updateGroundGeometry } from "./geometries/ground";
+import type { Map } from "../game/state/map";
 
 export const MAX_ENTITIES = 1 << 10;
 
@@ -262,6 +263,62 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_colorPalette"), 0, 0, 0, 0);
   }
 
+  const bushesVao = gl.createVertexArray();
+  gl.bindVertexArray(bushesVao);
+  let bushesVertexCount = 0;
+  {
+    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 3 }));
+    const normals = new Float32Array(positions.length);
+    getFlatShadingNormals(normals, positions);
+    const colorIndex = new Uint8Array(
+      Array.from({ length: positions.length / (3 * 3) }, () => {
+        const a = Math.floor(Math.random() * 8);
+        return [a, a, a];
+      }).flat(),
+    );
+
+    bushesVertexCount = positions.length / 3;
+
+    const a_position = gl.getAttribLocation(meshProgram, "a_position");
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_position);
+    gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+    const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_normal);
+    gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
+
+    const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
+    const colorIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_colorIndex);
+    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
+  }
+
+  const bushesBuffer = gl.createBuffer();
+  let bushesCount = 0;
+  gl.bindBuffer(gl.ARRAY_BUFFER, bushesBuffer);
+  byteOffset = 0;
+  for (const attributeName of [
+    "a_objectMatrix1",
+    "a_objectMatrix2",
+    "a_objectMatrix3",
+    "a_objectMatrix4",
+    "a_colorPalette",
+  ]) {
+    const location = gl.getAttribLocation(meshProgram, attributeName);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
+    gl.vertexAttribDivisor(location, 1);
+    byteOffset += 16;
+  }
+
   //
   //
   //
@@ -303,14 +360,17 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
     gl.bindVertexArray(ballVao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
 
+    gl.bindVertexArray(bushesVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, bushesVertexCount, bushesCount);
+
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, spritesEntities.count);
   };
 
   const groundGeometry = createGroundGeometry();
-  const updateGround = (seed: number, range: [number, number]) => {
-    updateGroundGeometry(groundGeometry, seed, range);
+  const updateGround = (map: Map, range: [number, number]) => {
+    updateGroundGeometry(groundGeometry, map, range);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.positions);
     gl.bufferData(
@@ -338,7 +398,41 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
       0,
       groundGeometry.vertexCount,
     );
+
+    //
+    // bushes
+
+    let offset = 0;
+    let b = map.bushes.length;
+    for (let k = 8; k--;) {
+      const e = Math.floor((offset + b) / 2);
+      if (map.bushes[e][1] < range[0]) offset = e;
+      else b = e;
+    }
+
+    while (map.bushes[offset] && map.bushes[offset][1] < range[0]) offset++;
+
+    bushesCount = 0;
+    while (map.bushes[offset + bushesCount] && map.bushes[offset + bushesCount][1] <= range[1]) {
+      s[0] = s[1] = s[2] = map.bushes[offset + bushesCount][2];
+      v[0] = map.bushes[offset + bushesCount][0];
+      v[1] = map.bushes[offset + bushesCount][1];
+      mat4.fromRotationTranslationScale(m, q, v, s);
+
+      data.set(m, bushesCount * 20);
+
+      bushesCount++;
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, bushesBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW, 0, bushesCount * 20);
   };
 
   return { resize, updateGround, viewMatrix, spritesEntities, ballsEntities, draw };
 };
+
+const s = new Float32Array(3) as vec3;
+const v = new Float32Array(3) as vec3;
+const q = new Float32Array(4) as quat;
+const m = new Float32Array(20) as mat4;
+const data = new Float32Array(100_000);
