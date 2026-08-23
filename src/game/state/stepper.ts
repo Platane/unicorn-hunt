@@ -19,6 +19,12 @@ const MAX_BUSH_RADIUS = 2;
 
 const COLLISION_SAFETY_MARGIN = 0.2;
 
+//
+// TODO
+// - resolve unicorn collision with the same codepath as hunters
+//    - do the hunter / unicorn collision first, so they get removed from the list
+// - mounted unicorn leave a speed trail
+
 export const step = (
   map: Map,
   world: WorldSnapshot,
@@ -245,7 +251,7 @@ export const createInitialState = (): WorldSnapshot => ({
     { id: 13132, position: new Float32Array([0, 0]), direction: [1, 0] },
     { id: 313132, position: new Float32Array([0, 2]), direction: [1, 0] },
     { id: 1443132, position: new Float32Array([0, 3]), direction: [1, 0] },
-    { id: 1443132, position: new Float32Array([0, 6]), direction: [1, 0] },
+    { id: 1432, position: new Float32Array([0, 6]), direction: [1, 0] },
     ...Array.from({ length: 10 }, (_, i) => ({
       id: 0 | (i * 7777),
       position: new Float32Array([2 + Math.random() * 10, i * 15 + Math.random() * 20]),

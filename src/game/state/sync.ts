@@ -197,6 +197,7 @@ const deserializeSnapshot = (b: Uint8Array) => {
   }
   for (const p of s.snapshot.unicorns) {
     p.position = vec2.clone(p.position);
+    p.direction = vec2.clone(p.direction);
   }
   return s;
 };
