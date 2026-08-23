@@ -175,6 +175,9 @@ export const inputEquals = (a: PlayerInput | undefined, b: PlayerInput | undefin
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+// TODO:
+// - better compression for the world
+
 const serializeSnapshot = (snapshot: WorldSnapshot, duration: number, reqDate: number) =>
   encoder.encode(
     JSON.stringify({ snapshot, duration, reqDate }, (_: string, v: unknown) =>
@@ -188,9 +191,12 @@ const deserializeSnapshot = (b: Uint8Array) => {
     duration: number;
     reqDate: number;
   };
-  for (const p of s.snapshot.players) {
+  for (const p of s.snapshot.hunters) {
     p.position = vec2.clone(p.position);
     p.direction = vec2.clone(p.direction);
+  }
+  for (const p of s.snapshot.unicorns) {
+    p.position = vec2.clone(p.position);
   }
   return s;
 };

@@ -20,15 +20,16 @@ export const createSpriteSheet = () => {
   }
 
   ctx.filter = contourFilter;
-  ctx.fillText(`🦄`, 0.5, 0.5);
-  ctx.fillText(`🌈`, 1.5, 0.5);
-  ctx.fillText(`⭐️`, 2.5, 0.5);
-  ctx.fillText(`📦`, 3.5, 0.5);
+  ctx.fillText(`🤠`, 0.5, 0.5);
+  ctx.fillText(`🥸`, 1.5, 0.5);
+  ctx.fillText(`🦄`, 2.5, 0.5);
+  ctx.fillText(`⭐️`, 3.5, 0.5);
+  // ctx.fillText(`🌈`, 2.5, 0.5);
 
-  canvas.style.position = "absolute";
-  canvas.style.bottom = "0";
-  canvas.style.right = "0";
-  document.body.appendChild(canvas);
+  // canvas.style.position = "absolute";
+  // canvas.style.bottom = "0";
+  // canvas.style.right = "0";
+  // document.body.appendChild(canvas);
 
   return canvas;
 };

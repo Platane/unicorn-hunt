@@ -5,13 +5,13 @@ import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
 import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
-import { type Map, createMap } from "./game/state/map";
 
 let playerId = "me";
 let state: ReturnType<typeof createGameSync> | undefined;
 const users = [
   { userId: playerId, username: playerId } as any,
-  { userId: "132", username: "nemesis" } as any,
+  { userId: "1", username: "nemesis" } as any,
+  { userId: "2", username: "ares" } as any,
 ];
 
 const Wavedash = window.Wavedash as WavedashSDK | undefined;
@@ -93,23 +93,23 @@ const loop = () => {
   if (s0) {
     //
     // sync players, only host should do that
-    s0.players = [
-      ...s0.players,
+    s0.hunters = [
+      ...s0.hunters,
       ...users
-        .filter((u) => !s0.players.some((p) => p.id === u.userId))
+        .filter((u) => !s0.hunters.some((p) => p.id === u.userId))
         .map((u) => ({
           id: u.userId,
           direction: new Float32Array([0, 1]),
           position: new Float32Array([
             Math.random() * 2 - 1,
-            Math.max(0, ...s0.players.map((p) => p.position[1])),
+            Math.max(0, ...s0.hunters.map((p) => p.position[1])),
           ]),
         })),
     ];
 
     //
     // init ground
-    const player = s0.players.find((p) => p.id === playerId)!;
+    const player = s0.hunters.find((p) => p.id === playerId)!;
 
     if (Math.abs(player.position[1] - groundOrigin) > 8 && state.map) {
       groundOrigin = Math.round(player.position[1]);
@@ -126,13 +126,13 @@ const loop = () => {
     "\n" +
     users
       .map((u) => {
-        const p = state?.snapshots[0]?.players.find((p) => p.id === u.userId);
+        const p = state?.snapshots[0]?.hunters.find((p) => p.id === u.userId);
         return `- ${u.userId === playerId ? "🤠" : " "} ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
       })
       .join("\n");
 
   if (s0) {
-    const player = s0.players.find((p) => p.id === playerId)!;
+    const player = s0.hunters.find((p) => p.id === playerId)!;
 
     mat4.lookAt(
       renderer.viewMatrix,
@@ -155,13 +155,38 @@ const loop = () => {
     //   renderer.ballsEntities.count++;
     // }
 
-    renderer.spritesEntities.count = s0.players.length;
-    s0.players.forEach((p, i) => {
-      vec4.set(renderer.spritesEntities.items[i].spriteBox, 0, 0, 0.25, 1);
+    renderer.spritesEntities.count = 0;
+    s0.hunters.forEach((p) => {
+      const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
+      renderer.spritesEntities.count++;
+
+      if (p.id === playerId) vec4.set(i.spriteBox, 0, 0, 0.25, 1);
+      else vec4.set(i.spriteBox, 0.25, 0, 0.5, 1);
 
       vec3.set(v, p.position[0], p.position[1], 0.01);
-      mat4.fromRotationTranslation(renderer.spritesEntities.items[i].transform, q, v);
+      mat4.fromRotationTranslation(i.transform, q, v);
+
+      if (p.riding) {
+        const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
+        renderer.spritesEntities.count++;
+
+        vec4.set(i.spriteBox, 0.5, 0, 0.75, 1);
+
+        vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005);
+        mat4.fromRotationTranslation(i.transform, q, v);
+      }
     });
+
+    s0.unicorns.forEach((p) => {
+      const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
+      renderer.spritesEntities.count++;
+
+      vec4.set(i.spriteBox, 0.5, 0, 0.75, 1);
+
+      vec3.set(v, p.position[0], p.position[1], 0.01);
+      mat4.fromRotationTranslation(i.transform, q, v);
+    });
+
     renderer.draw();
   }
 
