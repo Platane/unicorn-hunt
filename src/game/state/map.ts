@@ -60,7 +60,7 @@ export const createMap = (seed: number) => {
     return vec2.squaredDistance(out, p);
   };
 
-  for (let y = controlPoints[0][1]; y <= controlPoints.at(-1)![1]; y += 0.1) {
+  for (let y = controlPoints[0][1] - 5; y <= controlPoints.at(-1)![1]; y += 0.1) {
     const o = (2 + (4 * (rand() % 16)) / 16) ** 3;
     const p = new Float32Array(3) as vec2;
     p[1] = y;
@@ -80,7 +80,7 @@ export type Map = ReturnType<typeof createMap>;
 
 export const createDebugMap = (map: Map) => {
   const canvas = document.createElement("canvas");
-  canvas.width = 500;
+  canvas.width = 300;
   canvas.height = 800;
   const ctx = canvas.getContext("2d")!;
 

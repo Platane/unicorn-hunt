@@ -3,14 +3,16 @@ import { createGameSync } from "./game/state/sync";
 import { mat4, quat, vec2, vec3, vec4 } from "gl-matrix";
 import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
-import { hashInt } from "./utils/hash";
 import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { type Map, createMap } from "./game/state/map";
 
 let playerId = "me";
 let state: ReturnType<typeof createGameSync> | undefined;
-const users = [{ userId: playerId, username: playerId } as any];
+const users = [
+  { userId: playerId, username: playerId } as any,
+  { userId: "132", username: "nemesis" } as any,
+];
 
 const Wavedash = window.Wavedash as WavedashSDK | undefined;
 
@@ -80,7 +82,6 @@ const q = quat.identity(new Float32Array(4) as quat);
 const v = new Float32Array(3) as vec3;
 
 let groundOrigin = -10;
-let map: Map;
 
 const loop = () => {
   if (!state) return;
@@ -91,7 +92,7 @@ const loop = () => {
 
   if (s0) {
     //
-    // sync players
+    // sync players, only host should do that
     s0.players = [
       ...s0.players,
       ...users
@@ -99,21 +100,20 @@ const loop = () => {
         .map((u) => ({
           id: u.userId,
           direction: new Float32Array([0, 1]),
-          position: new Float32Array([0, Math.max(0, ...s0.players.map((p) => p.position[1]))]),
+          position: new Float32Array([
+            Math.random() * 2 - 1,
+            Math.max(0, ...s0.players.map((p) => p.position[1])),
+          ]),
         })),
     ];
-
-    if (!map) {
-      map = createMap(s0.seed);
-    }
 
     //
     // init ground
     const player = s0.players.find((p) => p.id === playerId)!;
 
-    if (Math.abs(player.position[1] - groundOrigin) > 8) {
+    if (Math.abs(player.position[1] - groundOrigin) > 8 && state.map) {
       groundOrigin = Math.round(player.position[1]);
-      renderer.updateGround(map, [groundOrigin - 16, groundOrigin + 16]);
+      renderer.updateGround(state.map, [groundOrigin - 16, groundOrigin + 16]);
     }
   }
 
@@ -141,19 +141,19 @@ const loop = () => {
       [0, 1, 0],
     );
 
-    renderer.ballsEntities.count = 0;
-    while (renderer.ballsEntities.count < 100) {
-      const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
-      const y = hashInt(renderer.ballsEntities.count) % 30;
-      vec3.set(v, x, y, 0);
-      mat4.fromRotationTranslation(
-        renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
-        q,
-        v,
-      );
-      renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
-      renderer.ballsEntities.count++;
-    }
+    // renderer.ballsEntities.count = 0;
+    // while (renderer.ballsEntities.count < 100) {
+    //   const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
+    //   const y = hashInt(renderer.ballsEntities.count) % 30;
+    //   vec3.set(v, x, y, 0);
+    //   mat4.fromRotationTranslation(
+    //     renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
+    //     q,
+    //     v,
+    //   );
+    //   renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
+    //   renderer.ballsEntities.count++;
+    // }
 
     renderer.spritesEntities.count = s0.players.length;
     s0.players.forEach((p, i) => {

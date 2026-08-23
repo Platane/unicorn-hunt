@@ -2,6 +2,7 @@ import { PlayerInput, WorldSnapshot } from "./types";
 import { STEP_DURATION, step as worldStep } from "./stepper";
 import { vec2 } from "gl-matrix";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
+import { createMap, Map } from "./map";
 
 const inputMessage = new Uint8Array(4);
 
@@ -25,10 +26,11 @@ export const createGameSync = (
 
   const hostId = net.getLobbyHostId(lobbyId as any) as any;
 
-  let order = 0;
+  let inputOrder = 0;
 
   const step = () => {
     const now = Date.now();
+    inputOrder = 0;
 
     if (hostId === playerId) out.hostLatency = 0;
 
@@ -101,6 +103,8 @@ export const createGameSync = (
     //
     // step
 
+    if (snapshots[0] && out.map?.seed !== snapshots[0].seed) out.map = createMap(snapshots[0].seed);
+
     // compute next
 
     currentGeneration = Math.max(currentGeneration, (now - startDate) / 1000 / STEP_DURATION);
@@ -109,7 +113,7 @@ export const createGameSync = (
         .filter((i) => i.generation === snapshots[0].generation)
         .sort((a, b) => a.order - b.order);
 
-      const w = worldStep(snapshots[0], frameInputs);
+      const w = worldStep(out.map!, snapshots[0], frameInputs);
 
       snapshots.unshift(w);
     }
@@ -126,7 +130,7 @@ export const createGameSync = (
       generation: Math.floor(
         Math.max(currentGeneration, (Date.now() - startDate) / 1000 / STEP_DURATION),
       ),
-      order: order++,
+      order: inputOrder++,
       playerId,
     };
 
@@ -145,7 +149,13 @@ export const createGameSync = (
     );
   };
 
-  const out = { step, registerInput, snapshots, hostLatency: 100 };
+  const out = {
+    step,
+    registerInput,
+    snapshots,
+    hostLatency: 100,
+    map: undefined as undefined | Map,
+  };
 
   return out;
 };
