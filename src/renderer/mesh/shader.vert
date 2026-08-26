@@ -22,7 +22,6 @@ in vec4 a_colorPalette;
 
 out vec3 v_normal;
 out vec3 v_color;
-flat out int v_instanceIndex;
 
 void main() {
 
@@ -36,8 +35,6 @@ void main() {
 
     v_normal = mat3(a_objectMatrix) * a_normal;
     v_normal = normalize(v_normal);
-
-    v_instanceIndex = gl_InstanceID;
 
     v_color = texelFetch(u_colorPalettesTexture, ivec2(int(a_colorIndex), int(a_colorPalette.x)), 0).xyz;
 }

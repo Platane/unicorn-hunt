@@ -3,7 +3,6 @@ precision highp float;
 
 in vec3 v_normal;
 in vec3 v_color;
-flat in int v_instanceIndex;
 
 layout(std140) uniform Camera {
     mat4 projectionMatrix;
