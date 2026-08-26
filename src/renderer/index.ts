@@ -10,6 +10,7 @@ import { getFlatShadingNormals } from "../utils/geometry-normals";
 import { createColorPalette } from "./geometries/colorPatette";
 import { createGroundGeometry, updateGroundGeometry } from "./geometries/ground";
 import type { Map } from "../game/state/map";
+import { getModelsGeometry } from "./geometries/models";
 
 export const MAX_ENTITIES = 1 << 10;
 
@@ -318,6 +319,11 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
     gl.vertexAttribDivisor(location, 1);
     byteOffset += 16;
   }
+
+  //
+  // models
+  //
+  const models = await getModelsGeometry();
 
   //
   //

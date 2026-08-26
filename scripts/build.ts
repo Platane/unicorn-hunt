@@ -16,7 +16,8 @@ await $`mkdir -p ${outDir} ${tmpDir}`;
 //
 // bundle
 const { outputs, success, logs } = await Bun.build({
-  entrypoints: ["./src/main.ts"],
+  entrypoints: [__dirname + "/../src/main.ts"],
+  // entrypoints: [__dirname + "/../index.html"],
   target: "browser",
   format: "esm",
 });
@@ -31,6 +32,16 @@ let css = "";
 for (const o of outputs) {
   if (o.path.endsWith(".css")) css += await o.text();
   if (o.path.endsWith(".js")) js += await o.text();
+}
+
+let i = 0;
+for (const o of outputs) {
+  if (o.path.endsWith(".bin")) {
+    const name = i.toString();
+    i++;
+    js = js.replaceAll(o.path, name);
+    Bun.write(outDir + "/" + name, await o.arrayBuffer());
+  }
 }
 
 console.log("bun build ✅");
@@ -95,7 +106,7 @@ console.log("roadroller ✅");
 //
 // zip
 //
-await $`cd ${outDir} && zip -9 -X -q bundle.zip index.html`;
+await $`cd ${outDir} && zip -9 -X -q bundle.zip *`;
 await $`advzip -z -4 -i 1000 -q ${outDir}/bundle.zip`;
 
 console.log("advzip ✅");
