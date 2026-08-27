@@ -1,21 +1,37 @@
 import { NodeIO, Scene, Node } from "@gltf-transform/core";
 import { reorder, weld } from "@gltf-transform/functions";
 import { MeshoptEncoder } from "meshoptimizer";
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec3, quat } from "gl-matrix";
 
 /**
  * file format
  *
  * 1     uint16    triangle count  = N
  * 1     uint8     bones count  = B
- * 3     float32   bbox min x,y,z
- * 3     float32   bbox size x,y,z
+ * 1     uint8     animation count  = A
+ * 3     float16   bbox min x,y,z
+ * 3     float16   bbox size x,y,z
+ *
  * N*3   uint8     triangle vertex indexes   -> we can infer the vertex count from that V
+ *
  * V*3   uint8     vertex position quantified into the bbox
+ *
  * B*
  *    1 uint8      parent id
  *    3 uint8      global position quantified
  *    4 uint8      rotation as quat quantified
+ *
+ * A*
+ *    1 uint8      bone mask
+ *    1 uint8      duration in second
+ *
+ *    for each bones in the mask
+ *       1 uint8   number ok keys = K
+ *
+ *       K*
+ *          1 uint8 key time
+ *          4 uint8 rotation
+ *
  */
 
 const document = await new NodeIO().readBinary(
@@ -132,6 +148,11 @@ const models = document
       const p = joint.getWorldTranslation();
       for (let u = 0; u < 3; u++)
         bones[i * (1 + 3 + 4) + 1 + u] = Math.round(((p[u] - bbox.min[u]) / bbox.size[u]) * 255);
+
+      const q = new Float32Array(joint.getRotation());
+      quat.normalize(q, q);
+      for (let u = 0; u < 4; u++)
+        bones[i * (1 + 3 + 4) + 4 + u] = Math.round(((1 + q[u]) / 2) * 255);
     }
 
     return { header, quantPositions, indices: new Uint8Array(indices), bones };

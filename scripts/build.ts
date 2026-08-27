@@ -13,13 +13,22 @@ const tmpDir = __dirname + "/../.tmp";
 await $`rm -rf ${outDir} ${tmpDir}`;
 await $`mkdir -p ${outDir} ${tmpDir}`;
 
+const removeWhiteSpace = (text: string) =>
+  text
+    .replace(/\s+/g, " ")
+    .replace(/(\W)\s+/g, (_, a) => a)
+    .replace(/\s+(\W)/g, (_, a) => a)
+    .trim();
+
+const minifyHtml = (text: string) => removeWhiteSpace(text.replaceAll(/"(\S+)"/g, (_, a) => a));
+
 //
 // bundle
 const { outputs, success, logs } = await Bun.build({
   entrypoints: [__dirname + "/../src/main.ts"],
-  // entrypoints: [__dirname + "/../index.html"],
   target: "browser",
   format: "esm",
+  // minify: { whitespace: true, syntax: false, identifiers: false },
 });
 
 if (!success) {
@@ -47,11 +56,10 @@ for (const o of outputs) {
 console.log("bun build ✅");
 
 {
-  const html = (await Bun.file("index.html").text())
-    .replace(/<script*?<\/script>/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace("</body>", `<style>${css}</style><script>${js}</script>`);
+  const html = (await Bun.file("index.html").text()).replace(
+    /<script[^>]*>(<\/script>)?/,
+    `<style>${css}</style><script>${js}</script>`,
+  );
 
   await Bun.write(`${tmpDir}/index-bun-build.html`, html);
 }
@@ -74,12 +82,10 @@ js = await Bun.file(tmpDir + "/closure-out.js").text();
 console.log("closure compiler ✅");
 
 {
-  const html = (await Bun.file("index.html").text())
-    .replace(/<script*?<\/script>/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace("</body>", `<style>${css}</style><script>${js}</script>`);
-
+  const html = minifyHtml(await Bun.file("index.html").text()).replace(
+    /<script[^>]*>(<\/script>)?/,
+    `<style>${removeWhiteSpace(css)}</style><script>${js}</script>`,
+  );
   await Bun.write(`${tmpDir}/index-closure.html`, html);
 }
 
@@ -93,13 +99,12 @@ console.log("roadroller ✅");
 
 //
 // inline into html
-{
-  const html = (await Bun.file("index.html").text())
-    .replace(/<script*?<\/script>/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace("</body>", `<style>${css}</style><script>${firstLine + secondLine}</script>`);
 
+{
+  const html = removeWhiteSpace(await Bun.file("index.html").text()).replace(
+    /<script[^>]*>(<\/script>)?/,
+    `<style>${removeWhiteSpace(css)}</style><script>${firstLine + secondLine}</script>`,
+  );
   await Bun.write(`${outDir}/index.html`, html);
 }
 
@@ -110,6 +115,10 @@ await $`cd ${outDir} && zip -9 -X -q bundle.zip *`;
 await $`advzip -z -4 -i 1000 -q ${outDir}/bundle.zip`;
 
 console.log("advzip ✅");
+
+console.log(``);
+console.log(`index-closure.html  ${Bun.file(`${tmpDir}/index-closure.html`).size} bytes `);
+console.log(`index.html  ${Bun.file(`${outDir}/index.html`).size} bytes `);
 
 const size = Bun.file(`${outDir}/bundle.zip`).size;
 const budget = 13312;

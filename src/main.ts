@@ -5,6 +5,7 @@ import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
 import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
+import { getModelsGeometry } from "./renderer/geometries/models";
 
 let playerId = "me";
 let state: ReturnType<typeof createGameSync> | undefined;
@@ -19,8 +20,19 @@ const Wavedash = window.Wavedash as WavedashSDK | undefined;
 let renderer: Awaited<ReturnType<typeof createRenderer>>;
 
 // init game renderer
-createRenderer(c).then((r) => {
-  renderer = r;
+getModelsGeometry().then((geometries) => {
+  renderer = createRenderer(c, geometries);
+
+  // debug
+  {
+    for (let k = 16; k--;) {
+      const q = new Float32Array(renderer.modelEntities.items[0].data.buffer, k * 32, 4);
+      const v = new Float32Array(renderer.modelEntities.items[0].data.buffer, k * 32 + 16, 3);
+      vec3.zero(v);
+      quat.identity(q);
+    }
+    renderer.modelEntities.count = 1;
+  }
 
   window.onresize = () =>
     renderer.resize(c.clientWidth, c.clientHeight, window.devicePixelRatio || 1);

@@ -1,18 +1,20 @@
 import { mat4, quat, vec3, vec4 } from "gl-matrix";
 import meshFragmentShaderCode from "./mesh/shader.frag" with { type: "text" };
 import meshVertexShaderCode from "./mesh/shader.vert" with { type: "text" };
+import meshSkinnedFragmentShaderCode from "./meshSkinned/shader.frag" with { type: "text" };
+import meshSkinnedVertexShaderCode from "./meshSkinned/shader.vert" with { type: "text" };
 import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" };
 import spriteVertexShaderCode from "./sprite/shader.vert" with { type: "text" };
 import { createProgram } from "./utils";
 import { createSpriteSheet } from "./geometries/sprite";
 import { createRecursiveSphere } from "./geometries/recursiveSphere";
-import { getFlatShadingNormals } from "../utils/geometry-normals";
 import { createColorPalette } from "./geometries/colorPatette";
 import { createGroundGeometry, updateGroundGeometry } from "./geometries/ground";
 import type { Map } from "../game/state/map";
-import { getModelsGeometry } from "./geometries/models";
+import { getFlatShadingNormals } from "./geometries/utils/getFlatShadingNormals";
 
 export const MAX_ENTITIES = 1 << 10;
+export const MAX_BONES = 16;
 
 const UBO_BINDING_POINT_CAMERA = 1;
 
@@ -27,7 +29,16 @@ const TEXTURE_INDEX_COLOR_PALETTES = 1;
  *   - caller mutate viewMatrix
  *   - draw
  */
-export const createRenderer = async (canvas: HTMLCanvasElement) => {
+export const createRenderer = (
+  canvas: HTMLCanvasElement,
+  skinedModelGeometries: {
+    bonesCount: number;
+    positions: Float32Array;
+    colorIndexes: Uint8Array;
+    boneWeights: Float32Array;
+    boneIndexes: Uint8Array;
+  }[],
+) => {
   const gl = canvas.getContext("webgl2")!;
 
   const cameraUBOArray = new Float32Array(16 + 16 + 4);
@@ -323,7 +334,60 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
   //
   // models
   //
-  const models = await getModelsGeometry();
+  const meshSkinnedProgram = createProgram(
+    gl,
+    meshSkinnedVertexShaderCode,
+    meshSkinnedFragmentShaderCode,
+  );
+  gl.uniformBlockBinding(
+    meshSkinnedProgram,
+    gl.getUniformBlockIndex(meshSkinnedProgram, "Camera"),
+    UBO_BINDING_POINT_CAMERA,
+  );
+  const u_meshSkinnedBones = gl.getUniformLocation(meshSkinnedProgram, "u_bones");
+  const modelEntities = {
+    items: Array.from({ length: 64 }, () => ({
+      data: new Float32Array(MAX_BONES * 8),
+      modelId: 0,
+    })),
+    count: 0,
+  };
+  const modelVaos = skinedModelGeometries.map((g) => {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const vertexCount = g.positions.length / 3;
+
+    const a_position = gl.getAttribLocation(meshSkinnedProgram, "a_position");
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, g.positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_position);
+    gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
+
+    const a_boneWeight = gl.getAttribLocation(meshSkinnedProgram, "a_boneWeight");
+    const weightBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, weightBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, g.boneWeights, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_boneWeight);
+    gl.vertexAttribPointer(a_boneWeight, 4, gl.FLOAT, false, 0, 0);
+
+    const a_colorIndex = gl.getAttribLocation(meshSkinnedProgram, "a_colorIndex");
+    const colorIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_colorIndex);
+    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
+
+    const a_boneIndex = gl.getAttribLocation(meshSkinnedProgram, "a_boneIndex");
+    const boneIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, boneIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, g.boneIndexes, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_boneIndex);
+    gl.vertexAttribIPointer(a_boneIndex, 4, gl.UNSIGNED_BYTE, 0, 0);
+
+    return { vao, vertexCount };
+  });
 
   //
   //
@@ -368,6 +432,26 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
 
     gl.bindVertexArray(bushesVao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, bushesVertexCount, bushesCount);
+
+    gl.useProgram(meshSkinnedProgram);
+    let modelId = -1;
+    for (let i = 0; i < modelEntities.count; i++) {
+      const item = modelEntities.items[i];
+
+      if (item.modelId !== modelId) {
+        modelId = item.modelId;
+        gl.bindVertexArray(modelVaos[modelId].vao);
+      }
+
+      gl.uniform4fv(
+        u_meshSkinnedBones,
+        item.data,
+        0,
+        skinedModelGeometries[modelId].bonesCount * 8,
+      );
+
+      gl.drawArrays(gl.TRIANGLES, 0, modelVaos[modelId].vertexCount);
+    }
 
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
@@ -434,7 +518,7 @@ export const createRenderer = async (canvas: HTMLCanvasElement) => {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW, 0, bushesCount * 20);
   };
 
-  return { resize, updateGround, viewMatrix, spritesEntities, ballsEntities, draw };
+  return { resize, updateGround, viewMatrix, modelEntities, spritesEntities, ballsEntities, draw };
 };
 
 const s = new Float32Array(3) as vec3;

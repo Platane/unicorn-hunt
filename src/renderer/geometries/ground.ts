@@ -1,7 +1,6 @@
-import { vec3 } from "gl-matrix";
 import { hashInt } from "../../utils/hash";
-import { getFlatShadingNormals } from "../../utils/geometry-normals";
 import type { Map } from "../../game/state/map";
+import { getFlatShadingNormals } from "./utils/getFlatShadingNormals";
 
 export const createGroundGeometry = () => {
   const colorIndex = new Uint8Array(1 << 16);
