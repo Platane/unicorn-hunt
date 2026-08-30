@@ -13,6 +13,7 @@ export const HUNTER_SPEED = 1;
 export const WILD_UNICORN_SPEED = 0.6;
 export const MOUNTED_UNICORN_SPEED = 1.4;
 export const HUNTER_ON_TRAIL_SPEED = 1.4;
+export const HUNTER_JUMP_DURATION = 20;
 
 export const TRAIL_RADIUS = 1.4;
 
@@ -44,31 +45,12 @@ export const step = (
     const hunter = world.hunters.find((p) => p.id === input.playerId);
     if (hunter) {
       vec2.copy(hunter.direction, DIRECTIONS[input.angle & 15]);
-    }
-  }
 
-  // move hunters
-  for (const hunter of world.hunters) {
-    if (hunter.riding && hunter.riding.remainingTime-- < 0) hunter.riding = undefined;
-
-    if (hunter.onTrail) hunter.onTrail--;
-
-    const speed = hunter.riding
-      ? MOUNTED_UNICORN_SPEED
-      : hunter.onTrail
-        ? HUNTER_ON_TRAIL_SPEED
-        : HUNTER_SPEED;
-
-    vec2.scaleAndAdd(hunter.position, hunter.position, hunter.direction, speed * STEP_DURATION);
-
-    // hunter leave a trail while riding
-    if (hunter.riding) {
-      const trail = world.rainbowTrails[hunter.riding.trailIndex];
-      if (vec2.sqrDist(hunter.position, trail[1]) > TRAIL_POINT_DISTANCE ** 2) {
-        trail.unshift(vec2.create());
-      }
-      trail[0][0] = hunter.position[0];
-      trail[0][1] = hunter.position[1];
+      if (input.jump && !hunter.jumping)
+        hunter.jumping = {
+          remainingTime: HUNTER_JUMP_DURATION,
+          direction: [...hunter.direction],
+        };
     }
   }
 
@@ -116,9 +98,37 @@ export const step = (
     }
   }
 
-  // detect collisions
+  //
+  // move hunters
   const islands: Island[] = [];
   for (const hunter of world.hunters) {
+    if (hunter.riding && hunter.riding.remainingTime-- <= 0) hunter.riding = undefined;
+    if (hunter.jumping && hunter.jumping.remainingTime-- <= 0) hunter.jumping = undefined;
+    if (hunter.onTrail) hunter.onTrail--;
+    if (hunter.staggered) hunter.staggered--;
+
+    const speed = hunter.staggered
+      ? 0
+      : hunter.riding
+        ? MOUNTED_UNICORN_SPEED
+        : hunter.onTrail
+          ? HUNTER_ON_TRAIL_SPEED
+          : HUNTER_SPEED;
+
+    // move
+    const direction = hunter.jumping?.direction ?? hunter.direction;
+    vec2.scaleAndAdd(hunter.position, hunter.position, direction, speed * STEP_DURATION);
+
+    // hunter leave a trail while riding
+    if (hunter.riding) {
+      const trail = world.rainbowTrails[hunter.riding.trailIndex];
+      if (vec2.sqrDist(hunter.position, trail[1]) > TRAIL_POINT_DISTANCE ** 2) {
+        trail.unshift(vec2.create());
+      }
+      trail[0][0] = hunter.position[0];
+      trail[0][1] = hunter.position[1];
+    }
+
     //
     // unicorn catch
     for (let i = world.unicorns.length; i--;) {

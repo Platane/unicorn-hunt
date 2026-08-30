@@ -12,6 +12,8 @@ export type Hunter = {
   direction: vec2;
   position: vec2;
   riding?: { remainingTime: number; trailIndex: number };
+  jumping?: { remainingTime: number; direction: vec2 };
+  staggered?: number;
   onTrail?: number;
 };
 export type Unicorn = {
@@ -21,4 +23,5 @@ export type Unicorn = {
 };
 export type PlayerInput = {
   angle: number; // quantified to 16 positions
+  jump?: boolean;
 };

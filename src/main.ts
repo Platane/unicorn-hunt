@@ -3,7 +3,7 @@ import { createGameSync } from "./game/state/sync";
 import { mat4, quat, vec2, vec3, vec4 } from "gl-matrix";
 import { createRenderer } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
-import { createInitialState } from "./game/state/stepper";
+import { createInitialState, HUNTER_JUMP_DURATION } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { getModelsGeometry } from "./renderer/geometries/models";
 
@@ -139,7 +139,14 @@ const loop = () => {
     users
       .map((u) => {
         const p = state?.snapshots[0]?.hunters.find((p) => p.id === u.userId);
-        return `- ${u.userId === playerId ? "🤠" : " "} ${u.userId} ${u.username.padEnd(20, " ")} ${p?.position}`;
+        const status = [
+          //
+          p?.jumping ? "↑" : "  ",
+          p?.riding ? "🦄" : "  ",
+          p?.onTrail ? "🌈" : "  ",
+          p?.staggered ? "🚧" : "  ",
+        ].join(" - ");
+        return `- ${u.userId === playerId ? "🤠" : "  "}  ${u.username.padEnd(12, " ")} ${status} ${p?.position}`;
       })
       .join("\n");
 
@@ -186,7 +193,11 @@ const loop = () => {
       if (p.id === playerId) vec4.set(i.spriteBox, 0, 0, 0.25, 1);
       else vec4.set(i.spriteBox, 0.25, 0, 0.5, 1);
 
-      vec3.set(v, p.position[0], p.position[1], 0.01);
+      const jumpHeight = p.jumping
+        ? Math.sqrt(1 - 2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION))
+        : 0;
+
+      vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight);
       mat4.fromRotationTranslation(i.transform, q, v);
 
       if (p.riding) {
@@ -195,7 +206,7 @@ const loop = () => {
 
         vec4.set(i.spriteBox, 0.5, 0, 0.75, 1);
 
-        vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005);
+        vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight);
         mat4.fromRotationTranslation(i.transform, q, v);
       }
     });

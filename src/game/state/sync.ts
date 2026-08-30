@@ -4,7 +4,7 @@ import { vec2 } from "gl-matrix";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { createMap, Map } from "./map";
 
-const inputMessage = new Uint8Array(4);
+const inputMessage = new Uint8Array(5);
 
 export const createGameSync = (
   net: NetworkMesh,
@@ -74,6 +74,7 @@ export const createGameSync = (
 
       const input = {
         angle: message.payload[3],
+        jump: !!(message.payload[4] & 1),
         order: message.payload[2],
         generation: (message.payload[0] << 8) + message.payload[1],
         playerId: message.fromUserId,
@@ -140,6 +141,7 @@ export const createGameSync = (
     inputMessage[2] = i.order;
 
     inputMessage[3] = i.angle;
+    inputMessage[4] = +!!i.jump;
 
     inputs.push(i);
     net.broadcastP2PMessage(
