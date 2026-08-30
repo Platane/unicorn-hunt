@@ -13,6 +13,9 @@ curl -fsSL https://wavedash.com/cli/install.sh | sh
 wavedash dev
 bun build ./index.html --outdir dist --watch
 
+# push dev build
+rm -r dist ; bun build index.html --outdir dist && wavedash build push
+
 ```
 
 > for agent:

@@ -42,7 +42,7 @@ export const createRenderer = (
   const gl = canvas.getContext("webgl2")!;
 
   const cameraUBOArray = new Float32Array(16 + 16 + 4);
-  const projectionMatrix = new Float32Array(cameraUBOArray.buffer, 0, 16);
+  const projectionMatrix = new Float32Array(cameraUBOArray.buffer, 0, 16) as mat4;
   const viewMatrix = new Float32Array(cameraUBOArray.buffer, 16 * 4, 16) as mat4;
   const lightDirection = new Float32Array(cameraUBOArray.buffer, (16 + 16) * 4, 3) as vec3;
   vec3.set(lightDirection, 1, 2, 0.5);
@@ -518,7 +518,16 @@ export const createRenderer = (
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW, 0, bushesCount * 20);
   };
 
-  return { resize, updateGround, viewMatrix, modelEntities, spritesEntities, ballsEntities, draw };
+  return {
+    resize,
+    updateGround,
+    viewMatrix,
+    projectionMatrix,
+    modelEntities,
+    spritesEntities,
+    ballsEntities,
+    draw,
+  };
 };
 
 const s = new Float32Array(3) as vec3;

@@ -8,7 +8,7 @@ import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { getModelsGeometry } from "./renderer/geometries/models";
 
 let playerId = "me";
-let state: ReturnType<typeof createGameSync> | undefined;
+let state: (ReturnType<typeof createGameSync> & { joinUrl?: string }) | undefined;
 const users = [
   { userId: playerId, username: playerId } as any,
   { userId: "1", username: "nemesis" } as any,
@@ -18,6 +18,24 @@ const users = [
 const Wavedash = window.Wavedash as WavedashSDK | undefined;
 
 let renderer: Awaited<ReturnType<typeof createRenderer>>;
+
+// hunter position in screen space, serves as the touch stick origin
+const viewProjMatrix = mat4.create();
+const projectedPoint = vec3.create();
+const getHunterScreenPos = () => {
+  const p = state?.snapshots[0]?.hunters.find((h) => h.id === playerId);
+  if (!p || !renderer) return;
+
+  mat4.multiply(viewProjMatrix, renderer.projectionMatrix, renderer.viewMatrix);
+
+  vec3.set(projectedPoint, p.position[0], p.position[1], 0.01);
+  vec3.transformMat4(projectedPoint, projectedPoint, viewProjMatrix);
+
+  return [
+    ((projectedPoint[0] + 1) / 2) * c.clientWidth,
+    ((1 - projectedPoint[1]) / 2) * c.clientHeight,
+  ] as [number, number];
+};
 
 // init game renderer
 getModelsGeometry().then((geometries) => {
@@ -51,7 +69,7 @@ getModelsGeometry().then((geometries) => {
       createInitialState(),
     );
 
-    createKeyboardController(state.registerInput);
+    createKeyboardController(state.registerInput, getHunterScreenPos);
     loop();
   } else {
     Wavedash.init({ debug: true });
@@ -63,15 +81,16 @@ getModelsGeometry().then((geometries) => {
         (await Wavedash.getLobbyInviteLink(false)).data ??
         location.origin + location.pathname + "?lobbyId=" + p.lobbyId;
 
-      console.log("invite:", joinUrl);
-
       users.length = 0;
       users.push(...p.users);
 
       const s0 = p.hostId === playerId ? createInitialState() : undefined;
 
       state = createGameSync(Wavedash, p.lobbyId, playerId, s0);
-      createKeyboardController(state.registerInput);
+
+      state.joinUrl = joinUrl;
+
+      createKeyboardController(state.registerInput, getHunterScreenPos);
       loop();
     });
 
@@ -130,6 +149,8 @@ const loop = () => {
   }
 
   state.step();
+
+  if (state.joinUrl) a.innerText = a.href = state.joinUrl;
 
   u.innerText =
     `latency: ${state.hostLatency}` +

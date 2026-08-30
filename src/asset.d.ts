@@ -1,4 +1,5 @@
 // elements with an id are global
+declare const a: HTMLAnchorElement;
 declare const c: HTMLCanvasElement;
 declare const u: HTMLDivElement;
 

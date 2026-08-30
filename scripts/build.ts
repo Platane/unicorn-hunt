@@ -123,3 +123,5 @@ console.log(`index.html  ${Bun.file(`${outDir}/index.html`).size} bytes `);
 const size = Bun.file(`${outDir}/bundle.zip`).size;
 const budget = 13312;
 console.log(`bundle.zip  ${size} / ${budget} bytes  (${((size / budget) * 100).toFixed(1)}%)`);
+
+// await $`cp ${tmpDir}/index-bun-build.html ${outDir}/index.html`;

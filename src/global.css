@@ -3,6 +3,9 @@ body {
   height: 100vh;
   display: flex;
   background-color: beige;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: none;
 }
 #c {
   width: 100%;
@@ -17,5 +20,12 @@ body {
   top: 0;
   left: 0;
   right: 0;
+  z-index: 2;
+}
+#a {
+  position: absolute;
+  font-family: monospace;
+  bottom: 5;
+  right: 5;
   z-index: 2;
 }
