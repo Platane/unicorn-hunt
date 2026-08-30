@@ -5,12 +5,14 @@ export type WorldSnapshot = {
   generation: number;
   hunters: Hunter[];
   unicorns: Unicorn[];
+  rainbowTrails: vec2[][];
 };
 export type Hunter = {
   id: string;
   direction: vec2;
   position: vec2;
-  riding?: number;
+  riding?: { remainingTime: number; trailIndex: number };
+  onTrail?: number;
 };
 export type Unicorn = {
   id: number;

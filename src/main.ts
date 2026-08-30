@@ -168,6 +168,17 @@ const loop = () => {
     // }
 
     renderer.spritesEntities.count = 0;
+    s0.rainbowTrails.forEach((trail) => {
+      trail.forEach((p) => {
+        const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
+        renderer.spritesEntities.count++;
+
+        vec4.set(i.spriteBox, 0.75, 0, 1, 1);
+        vec3.set(v, p[0], p[1], 0.002);
+        mat4.fromRotationTranslation(i.transform, q, v);
+      });
+    });
+
     s0.hunters.forEach((p) => {
       const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
       renderer.spritesEntities.count++;

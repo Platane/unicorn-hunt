@@ -12,10 +12,15 @@ export const STEP_DURATION = 1 / 20;
 export const HUNTER_SPEED = 1;
 export const WILD_UNICORN_SPEED = 0.6;
 export const MOUNTED_UNICORN_SPEED = 1.4;
+export const HUNTER_ON_TRAIL_SPEED = 1.4;
 
-const UNICORN_RADIUS = 0.5;
-const HUNTER_RADIUS = 0.5;
-const MAX_BUSH_RADIUS = 2;
+export const TRAIL_RADIUS = 1.4;
+
+export const UNICORN_RADIUS = 0.5;
+export const HUNTER_RADIUS = 0.5;
+export const MAX_BUSH_RADIUS = 2;
+
+const TRAIL_POINT_DISTANCE = 1;
 
 const COLLISION_SAFETY_MARGIN = 0.2;
 
@@ -44,14 +49,27 @@ export const step = (
 
   // move hunters
   for (const hunter of world.hunters) {
-    if (hunter.riding) hunter.riding--;
+    if (hunter.riding && hunter.riding.remainingTime-- < 0) hunter.riding = undefined;
 
-    vec2.scaleAndAdd(
-      hunter.position,
-      hunter.position,
-      hunter.direction,
-      (hunter.riding ? MOUNTED_UNICORN_SPEED : HUNTER_SPEED) * STEP_DURATION,
-    );
+    if (hunter.onTrail) hunter.onTrail--;
+
+    const speed = hunter.riding
+      ? MOUNTED_UNICORN_SPEED
+      : hunter.onTrail
+        ? HUNTER_ON_TRAIL_SPEED
+        : HUNTER_SPEED;
+
+    vec2.scaleAndAdd(hunter.position, hunter.position, hunter.direction, speed * STEP_DURATION);
+
+    // hunter leave a trail while riding
+    if (hunter.riding) {
+      const trail = world.rainbowTrails[hunter.riding.trailIndex];
+      if (vec2.sqrDist(hunter.position, trail[1]) > TRAIL_POINT_DISTANCE ** 2) {
+        trail.unshift(vec2.create());
+      }
+      trail[0][0] = hunter.position[0];
+      trail[0][1] = hunter.position[1];
+    }
   }
 
   // move unicorn
@@ -98,23 +116,35 @@ export const step = (
     }
   }
 
-  // unicorn catch
+  // detect collisions
+  const islands: Island[] = [];
   for (const hunter of world.hunters) {
+    //
+    // unicorn catch
     for (let i = world.unicorns.length; i--;) {
       if (
         !hunter.riding &&
         vec2.squaredDistance(hunter.position, world.unicorns[i].position) <
           (HUNTER_RADIUS + UNICORN_RADIUS / 2) ** 2
       ) {
-        hunter.riding = 300;
+        hunter.riding = { remainingTime: 300, trailIndex: world.rainbowTrails.length };
+
+        world.rainbowTrails.push([[...hunter.position], [...hunter.position]]);
         world.unicorns.splice(i, 1);
       }
     }
-  }
 
-  // detect collisions
-  const islands: Island[] = [];
-  for (const hunter of world.hunters) {
+    //
+    // on Trail detection
+    for (const trail of world.rainbowTrails) {
+      for (const p of trail)
+        if (vec2.squaredDistance(hunter.position, p) < TRAIL_RADIUS ** 2) {
+          hunter.onTrail = 3;
+        }
+    }
+
+    //
+    // island construction
     const circles = new Set<vec3>();
 
     let a = 0;
@@ -247,6 +277,7 @@ export const createInitialState = (): WorldSnapshot => ({
   generation: 0,
   seed: 0 | (Math.random() * (1 << 16)),
   hunters: [],
+  rainbowTrails: [],
   unicorns: [
     { id: 13132, position: new Float32Array([0, 0]), direction: [1, 0] },
     { id: 313132, position: new Float32Array([0, 2]), direction: [1, 0] },

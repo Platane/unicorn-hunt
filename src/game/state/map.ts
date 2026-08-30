@@ -115,8 +115,8 @@ export const createDebugMap = (map: Map) => {
   return canvas;
 };
 
-// const c = createDebugMap(createMap(Math.random() * 123));
-// document.body.appendChild(c);
-// c.style.position = "absolute";
-// c.style.top = "0";
-// c.style.right = "0";
+const c = createDebugMap(createMap(Math.random() * 123));
+document.body.appendChild(c);
+c.style.position = "absolute";
+c.style.top = "0";
+c.style.right = "0";
