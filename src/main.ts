@@ -1,11 +1,16 @@
 import "./global.css";
 import { createGameSync } from "./game/state/sync";
-import { mat4, quat, vec2, vec3, vec4 } from "gl-matrix";
-import { createRenderer } from "./renderer";
+import { mat4, quat, vec3 } from "gl-matrix";
+import { BONE_STRIDE, createRenderer, MAX_BONES } from "./renderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
-import { createInitialState, HUNTER_JUMP_DURATION } from "./game/state/stepper";
+import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { getModelsGeometry } from "./renderer/geometries/models";
+import { stepSpring3 } from "./utils/spring";
+import { applyDecorum, applyGround, applyWorld } from "./applyWorld";
+import { createRecursiveSphere } from "./renderer/geometries/recursiveSphere";
+import { createGroundGeometry } from "./renderer/geometries/ground";
+import { setBoneAt } from "./utils/transform";
 
 let playerId = "me";
 let state: (ReturnType<typeof createGameSync> & { joinUrl?: string }) | undefined;
@@ -20,9 +25,9 @@ const Wavedash = window.Wavedash as WavedashSDK | undefined;
 let renderer: Awaited<ReturnType<typeof createRenderer>>;
 
 // hunter position in screen space, serves as the touch stick origin
-const viewProjMatrix = mat4.create();
-const projectedPoint = vec3.create();
 const getHunterScreenPos = () => {
+  const viewProjMatrix = mat4.create();
+  const projectedPoint = vec3.create();
   const p = state?.snapshots[0]?.hunters.find((h) => h.id === playerId);
   if (!p || !renderer) return;
 
@@ -37,19 +42,32 @@ const getHunterScreenPos = () => {
   ] as [number, number];
 };
 
+const createSphereGeometry = (tessellationStep: number) => {
+  const positions = new Float32Array(createRecursiveSphere({ tessellationStep }));
+  const colorIndexes = new Uint8Array(positions.length / 3);
+  for (let i = 0; i < colorIndexes.length; i += 3)
+    colorIndexes[i] = colorIndexes[i + 1] = colorIndexes[i + 2] = Math.floor(Math.random() * 8);
+  return { positions, colorIndexes };
+};
+
+const INSTANTIATED_MODEL_BUSH = 0;
+const DYNAMIC_MODEL_GROUND = 0;
+
+const groundGeometry = createGroundGeometry();
+
 // init game renderer
 getModelsGeometry().then((geometries) => {
-  renderer = createRenderer(c, geometries);
+  renderer = createRenderer(c, geometries, [createSphereGeometry(3)], 1);
+
+  renderer.dynamicModels[DYNAMIC_MODEL_GROUND] = groundGeometry;
 
   // debug
   {
-    for (let k = 16; k--;) {
-      const q = new Float32Array(renderer.modelEntities.items[0].data.buffer, k * 32, 4);
-      const v = new Float32Array(renderer.modelEntities.items[0].data.buffer, k * 32 + 16, 3);
-      vec3.zero(v);
-      quat.identity(q);
-    }
-    renderer.modelEntities.count = 1;
+    const data = new Float32Array(MAX_BONES * BONE_STRIDE);
+    const identity = quat.identity(new Float32Array(4) as quat);
+    const zero = new Float32Array(3) as vec3;
+    for (let k = MAX_BONES; k--;) setBoneAt(data, k * BONE_STRIDE, zero, identity);
+    renderer.skinnedModelEntities.push({ data, modelId: 0 });
   }
 
   window.onresize = () =>
@@ -109,10 +127,14 @@ getModelsGeometry().then((geometries) => {
 });
 
 // scratch, reused every frame
-const q = quat.identity(new Float32Array(4) as quat);
 const v = new Float32Array(3) as vec3;
 
-let groundOrigin = -10;
+let renderedGroundOrigin = -10;
+
+let camera = {
+  position: [0, -2, 10],
+  velocity: new Float32Array(3),
+};
 
 const loop = () => {
   if (!state) return;
@@ -142,9 +164,11 @@ const loop = () => {
     // init ground
     const player = s0.hunters.find((p) => p.id === playerId)!;
 
-    if (Math.abs(player.position[1] - groundOrigin) > 8 && state.map) {
-      groundOrigin = Math.round(player.position[1]);
-      renderer.updateGround(state.map, [groundOrigin - 16, groundOrigin + 16]);
+    if (Math.abs(player.position[1] - renderedGroundOrigin) > 8 && state.map) {
+      renderedGroundOrigin = Math.round(player.position[1]);
+      const range: [number, number] = [renderedGroundOrigin - 16, renderedGroundOrigin + 16];
+      applyGround(state.map, range, groundGeometry);
+      applyDecorum(state.map, range, renderer.instantiatedModelEntities[INSTANTIATED_MODEL_BUSH]);
     }
   }
 
@@ -174,73 +198,21 @@ const loop = () => {
   if (s0) {
     const player = s0.hunters.find((p) => p.id === playerId)!;
 
+    const CAMERA_ALTITUDE = 10;
+    vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
+
+    stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 });
+
+    vec3.copy(camera.position, v);
+
     mat4.lookAt(
       renderer.viewMatrix,
-      [0, 0, 10],
-      [player.position[0] * 0.1, player.position[1], 0],
+      camera.position,
+      [player.position[0], player.position[1] + 2, 0],
       [0, 1, 0],
     );
 
-    // renderer.ballsEntities.count = 0;
-    // while (renderer.ballsEntities.count < 100) {
-    //   const x = (hashInt(renderer.ballsEntities.count + 1212) % 40) - 20;
-    //   const y = hashInt(renderer.ballsEntities.count) % 30;
-    //   vec3.set(v, x, y, 0);
-    //   mat4.fromRotationTranslation(
-    //     renderer.ballsEntities.items[renderer.ballsEntities.count].transform,
-    //     q,
-    //     v,
-    //   );
-    //   renderer.ballsEntities.items[renderer.ballsEntities.count].colorPalette[0] = y % 3;
-    //   renderer.ballsEntities.count++;
-    // }
-
-    renderer.spritesEntities.count = 0;
-    s0.rainbowTrails.forEach((trail) => {
-      trail.forEach((p) => {
-        const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
-        renderer.spritesEntities.count++;
-
-        vec4.set(i.spriteBox, 0.75, 0, 1, 1);
-        vec3.set(v, p[0], p[1], 0.002);
-        mat4.fromRotationTranslation(i.transform, q, v);
-      });
-    });
-
-    s0.hunters.forEach((p) => {
-      const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
-      renderer.spritesEntities.count++;
-
-      if (p.id === playerId) vec4.set(i.spriteBox, 0, 0, 0.25, 1);
-      else vec4.set(i.spriteBox, 0.25, 0, 0.5, 1);
-
-      const jumpHeight = p.jumping
-        ? Math.sqrt(1 - 2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION))
-        : 0;
-
-      vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight);
-      mat4.fromRotationTranslation(i.transform, q, v);
-
-      if (p.riding) {
-        const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
-        renderer.spritesEntities.count++;
-
-        vec4.set(i.spriteBox, 0.5, 0, 0.75, 1);
-
-        vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight);
-        mat4.fromRotationTranslation(i.transform, q, v);
-      }
-    });
-
-    s0.unicorns.forEach((p) => {
-      const i = renderer.spritesEntities.items[renderer.spritesEntities.count];
-      renderer.spritesEntities.count++;
-
-      vec4.set(i.spriteBox, 0.5, 0, 0.75, 1);
-
-      vec3.set(v, p.position[0], p.position[1], 0.01);
-      mat4.fromRotationTranslation(i.transform, q, v);
-    });
+    applyWorld(s0, renderer, playerId);
 
     renderer.draw();
   }

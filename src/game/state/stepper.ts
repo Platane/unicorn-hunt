@@ -15,11 +15,19 @@ export const MOUNTED_UNICORN_SPEED = 1.4;
 export const HUNTER_ON_TRAIL_SPEED = 1.4;
 export const HUNTER_JUMP_DURATION = 20;
 
+// ploughing through a hurdle on foot. it must not be zero: the stagger is
+// re-armed every tick spent inside, so a hunter stopped in one would never get
+// out again
+export const HUNTER_STAGGERED_SPEED = 0.35;
+// how long it lingers once out. only the tail matters, inside it is re-armed
+export const HUNTER_STAGGER_DURATION = 6;
+
 export const TRAIL_RADIUS = 1.4;
 
 export const UNICORN_RADIUS = 0.5;
 export const HUNTER_RADIUS = 0.5;
 export const MAX_BUSH_RADIUS = 2;
+export const MAX_OBSTACLE_RADIUS = 1;
 
 const TRAIL_POINT_DISTANCE = 1;
 
@@ -46,7 +54,8 @@ export const step = (
     if (hunter) {
       vec2.copy(hunter.direction, DIRECTIONS[input.angle & 15]);
 
-      if (input.jump && !hunter.jumping)
+      // no jumping out of a stagger: mistiming a hurdle costs you the next one
+      if (input.jump && !hunter.jumping && !hunter.staggered)
         hunter.jumping = {
           remainingTime: HUNTER_JUMP_DURATION,
           direction: [...hunter.direction],
@@ -108,7 +117,7 @@ export const step = (
     if (hunter.staggered) hunter.staggered--;
 
     const speed = hunter.staggered
-      ? 0
+      ? HUNTER_STAGGERED_SPEED
       : hunter.riding
         ? MOUNTED_UNICORN_SPEED
         : hunter.onTrail
@@ -151,6 +160,31 @@ export const step = (
         if (vec2.squaredDistance(hunter.position, p) < TRAIL_RADIUS ** 2) {
           hunter.onTrail = 3;
         }
+    }
+
+    //
+    // obstacle collision
+    if (!hunter.jumping) {
+      let a = 0;
+      let b = map.obstacles.length;
+      for (let k = 8; k--;) {
+        const e = Math.floor((a + b) / 2);
+        if (map.obstacles[e][1] < hunter.position[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
+        else b = e;
+      }
+
+      while (
+        map.obstacles[a] &&
+        map.obstacles[a][1] <= hunter.position[1] + HUNTER_RADIUS + MAX_OBSTACLE_RADIUS
+      ) {
+        if (
+          vec2.squaredDistance(map.obstacles[a], hunter.position) <
+          (HUNTER_RADIUS + map.obstacles[a][2]) ** 2
+        )
+          hunter.staggered = HUNTER_STAGGER_DURATION;
+
+        a++;
+      }
     }
 
     //

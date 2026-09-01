@@ -1,3 +1,9 @@
+// sub rectangles of the sprite sheet, as [ x0, y0, x1, y1 ]
+export const SPRITE_BOX_COWBOY = [0, 0, 0.25, 1];
+export const SPRITE_BOX_NEMESIS = [0.25, 0, 0.5, 1];
+export const SPRITE_BOX_UNICORN = [0.5, 0, 0.75, 1];
+export const SPRITE_BOX_STAR = [0.75, 0, 1, 1];
+
 export const createSpriteSheet = () => {
   const canvas = document.createElement("canvas");
   const L = 128;

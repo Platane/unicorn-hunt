@@ -11,10 +11,13 @@ layout(std140) uniform Camera {
     float time;
 };
 
-out vec4 outColor;
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec3 outNormal;
 
 void main() {
     float p = dot(v_normal, lightDirection);
+
+    outNormal = v_normal;
 
     outColor.rgba = vec4(v_color, 1.0);
 

@@ -19,6 +19,13 @@ export const createColorPalette = () => {
     ctx.fillRect(i, 2, 1, 1);
   }
 
+  // obstacles. warm, so a hurdle never reads as a bush you have to go around.
+  // full 16 wide, the ball geometry uses the same color indexes as a bush
+  for (let i = 16; i--;) {
+    ctx.fillStyle = `hsl(${18 + i * 3},85%,55%)`;
+    ctx.fillRect(i, 3, 1, 1);
+  }
+
   canvas.style.position = "absolute";
   canvas.style.bottom = "0";
   canvas.style.right = "0";

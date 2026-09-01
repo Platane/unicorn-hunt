@@ -1,4 +1,4 @@
-import { mat4, quat, vec3, vec4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import meshFragmentShaderCode from "./mesh/shader.frag" with { type: "text" };
 import meshVertexShaderCode from "./mesh/shader.vert" with { type: "text" };
 import meshSkinnedFragmentShaderCode from "./meshSkinned/shader.frag" with { type: "text" };
@@ -7,14 +7,14 @@ import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" 
 import spriteVertexShaderCode from "./sprite/shader.vert" with { type: "text" };
 import { createProgram } from "./utils";
 import { createSpriteSheet } from "./geometries/sprite";
-import { createRecursiveSphere } from "./geometries/recursiveSphere";
 import { createColorPalette } from "./geometries/colorPatette";
-import { createGroundGeometry, updateGroundGeometry } from "./geometries/ground";
-import type { Map } from "../game/state/map";
 import { getFlatShadingNormals } from "./geometries/utils/getFlatShadingNormals";
 
 export const MAX_ENTITIES = 1 << 10;
 export const MAX_BONES = 16;
+
+export const ENTITY_STRIDE = 4 * 5;
+export const BONE_STRIDE = 8;
 
 const UBO_BINDING_POINT_CAMERA = 1;
 
@@ -38,6 +38,11 @@ export const createRenderer = (
     boneWeights: Float32Array;
     boneIndexes: Uint8Array;
   }[],
+  instantiatedModelGeometries: {
+    positions: Float32Array;
+    colorIndexes: Uint8Array;
+  }[],
+  dynamicModelCount: number,
 ) => {
   const gl = canvas.getContext("webgl2")!;
 
@@ -59,7 +64,10 @@ export const createRenderer = (
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     const aspect = canvas.width / canvas.height;
-    mat4.perspective(projectionMatrix, Math.PI / 4, aspect, 0.1, 2000);
+
+    const fovx = Math.PI / 4;
+    const fovy = 2 * Math.atan(Math.tan(fovx / 2) / aspect);
+    mat4.perspective(projectionMatrix, fovy, aspect, 0.1, 2000);
   };
 
   //
@@ -107,29 +115,29 @@ export const createRenderer = (
 
   const spriteEntitiesBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, spriteEntitiesBuffer);
-  let byteOffset = 0;
-  for (const attributeName of [
-    "a_objectMatrix1",
-    "a_objectMatrix2",
-    "a_objectMatrix3",
-    "a_objectMatrix4",
-    "a_spriteBox",
-  ]) {
-    const location = gl.getAttribLocation(spriteProgram, attributeName);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
-    gl.vertexAttribDivisor(location, 1);
-    byteOffset += 16;
+  {
+    let byteOffset = 0;
+    for (const attributeName of [
+      "a_objectMatrix1",
+      "a_objectMatrix2",
+      "a_objectMatrix3",
+      "a_objectMatrix4",
+      "a_spriteBox",
+    ]) {
+      const location = gl.getAttribLocation(spriteProgram, attributeName);
+      gl.enableVertexAttribArray(location);
+      gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
+      gl.vertexAttribDivisor(location, 1);
+      byteOffset += 16;
+    }
   }
 
-  const spriteEntitiesData = new Float32Array(MAX_ENTITIES * 4 * 5);
   const spritesEntities = {
-    items: Array.from({ length: MAX_ENTITIES }, (_, i) => ({
-      transform: new Float32Array(spriteEntitiesData.buffer, i * 16 * 5, 16) as mat4,
-      spriteBox: new Float32Array(spriteEntitiesData.buffer, i * 16 * 5 + 16 * 4, 4) as vec4,
-    })),
+    data: new Float32Array(MAX_ENTITIES * ENTITY_STRIDE),
     count: 0,
+    version: 0,
   };
+  let spritesUploadedVersion = -1;
 
   {
     const texture = gl.createTexture();
@@ -149,7 +157,7 @@ export const createRenderer = (
   }
 
   //
-  // ball
+  // instantiated models
   //
   const meshProgram = createProgram(gl, meshVertexShaderCode, meshFragmentShaderCode);
 
@@ -159,27 +167,17 @@ export const createRenderer = (
     UBO_BINDING_POINT_CAMERA,
   );
 
-  let ballVertexCount = 0;
-  const ballVao = gl.createVertexArray();
-  gl.bindVertexArray(ballVao);
+  const instantiatedModelVaos = instantiatedModelGeometries.map((g) => {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
 
-  {
-    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 4 }));
-    const normals = new Float32Array(positions.length);
-    getFlatShadingNormals(normals, positions);
-    const colorIndex = new Uint8Array(
-      Array.from({ length: positions.length / (3 * 3) }, () => {
-        const a = Math.floor(Math.random() * 8);
-        return [a, a, a];
-      }).flat(),
-    );
-
-    ballVertexCount = positions.length / 3;
+    const normals = new Float32Array(g.positions.length);
+    getFlatShadingNormals(normals, g.positions);
 
     const a_position = gl.getAttribLocation(meshProgram, "a_position");
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, g.positions, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(a_position);
     gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
 
@@ -193,27 +191,35 @@ export const createRenderer = (
     const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
     const colorIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(a_colorIndex);
     gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
-  }
 
-  const ballEntitiesBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, ballEntitiesBuffer);
-  byteOffset = 0;
-  for (const attributeName of [
-    "a_objectMatrix1",
-    "a_objectMatrix2",
-    "a_objectMatrix3",
-    "a_objectMatrix4",
-    "a_colorPalette",
-  ]) {
-    const location = gl.getAttribLocation(meshProgram, attributeName);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
-    gl.vertexAttribDivisor(location, 1);
-    byteOffset += 16;
-  }
+    const entitiesBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, entitiesBuffer);
+    let byteOffset = 0;
+    for (const attributeName of [
+      "a_objectMatrix1",
+      "a_objectMatrix2",
+      "a_objectMatrix3",
+      "a_objectMatrix4",
+      "a_colorPalette",
+    ]) {
+      const location = gl.getAttribLocation(meshProgram, attributeName);
+      gl.enableVertexAttribArray(location);
+      gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
+      gl.vertexAttribDivisor(location, 1);
+      byteOffset += 16;
+    }
+
+    return { vao, entitiesBuffer, vertexCount: g.positions.length / 3, uploadedVersion: -1 };
+  });
+
+  const instantiatedModelEntities = instantiatedModelGeometries.map(() => ({
+    data: new Float32Array(MAX_ENTITIES * ENTITY_STRIDE),
+    count: 0,
+    version: 0,
+  }));
 
   {
     const texture = gl.createTexture();
@@ -232,38 +238,38 @@ export const createRenderer = (
     );
   }
 
-  const ballEntitiesData = new Float32Array(MAX_ENTITIES * 4 * 5);
-  const ballsEntities = {
-    items: Array.from({ length: MAX_ENTITIES }, (_, i) => ({
-      transform: new Float32Array(ballEntitiesData.buffer, i * 16 * 5, 16) as mat4,
-      colorPalette: new Float32Array(ballEntitiesData.buffer, i * 16 * 5 + 16 * 4, 4) as vec4,
-    })),
-    count: 0,
-  };
+  //
+  // dynamic models
+  //
+  const dynamicModels: {
+    positions: Float32Array;
+    normals: Float32Array;
+    colorIndex: Uint8Array;
+    vertexCount: number;
+    version: number;
+  }[] = Array.from({
+    length: dynamicModelCount,
+  });
 
-  //
-  // ground
-  //
-  const groundVao = gl.createVertexArray();
-  gl.bindVertexArray(groundVao);
-  const groundBuffer = {
-    positions: gl.createBuffer(),
-    normals: gl.createBuffer(),
-    colorIndex: gl.createBuffer(),
-  };
-  {
+  const dynamicModelResources = Array.from({ length: dynamicModelCount }, () => {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const positionBuffer = gl.createBuffer();
     const a_position = gl.getAttribLocation(meshProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.positions);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.enableVertexAttribArray(a_position);
     gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
 
+    const normalBuffer = gl.createBuffer();
     const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.normals);
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
     gl.enableVertexAttribArray(a_normal);
     gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
 
+    const colorIndexBuffer = gl.createBuffer();
     const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.colorIndex);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
     gl.enableVertexAttribArray(a_colorIndex);
     gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
 
@@ -271,68 +277,13 @@ export const createRenderer = (
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix2"), 0, 1, 0, 0);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix3"), 0, 0, 1, 0);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix4"), 0, 0, 0, 1);
-
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_colorPalette"), 0, 0, 0, 0);
-  }
 
-  const bushesVao = gl.createVertexArray();
-  gl.bindVertexArray(bushesVao);
-  let bushesVertexCount = 0;
-  {
-    const positions = new Float32Array(createRecursiveSphere({ tessellationStep: 3 }));
-    const normals = new Float32Array(positions.length);
-    getFlatShadingNormals(normals, positions);
-    const colorIndex = new Uint8Array(
-      Array.from({ length: positions.length / (3 * 3) }, () => {
-        const a = Math.floor(Math.random() * 8);
-        return [a, a, a];
-      }).flat(),
-    );
-
-    bushesVertexCount = positions.length / 3;
-
-    const a_position = gl.getAttribLocation(meshProgram, "a_position");
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(a_position);
-    gl.vertexAttribPointer(a_position, 3, gl.FLOAT, false, 0, 0);
-
-    const a_normal = gl.getAttribLocation(meshProgram, "a_normal");
-    const normalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(a_normal);
-    gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0);
-
-    const a_colorIndex = gl.getAttribLocation(meshProgram, "a_colorIndex");
-    const colorIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(a_colorIndex);
-    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
-  }
-
-  const bushesBuffer = gl.createBuffer();
-  let bushesCount = 0;
-  gl.bindBuffer(gl.ARRAY_BUFFER, bushesBuffer);
-  byteOffset = 0;
-  for (const attributeName of [
-    "a_objectMatrix1",
-    "a_objectMatrix2",
-    "a_objectMatrix3",
-    "a_objectMatrix4",
-    "a_colorPalette",
-  ]) {
-    const location = gl.getAttribLocation(meshProgram, attributeName);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, 4, gl.FLOAT, false, 16 * 5, byteOffset);
-    gl.vertexAttribDivisor(location, 1);
-    byteOffset += 16;
-  }
+    return { vao, positionBuffer, normalBuffer, colorIndexBuffer, uploadedVersion: -1 };
+  });
 
   //
-  // models
+  // skinned models
   //
   const meshSkinnedProgram = createProgram(
     gl,
@@ -345,13 +296,9 @@ export const createRenderer = (
     UBO_BINDING_POINT_CAMERA,
   );
   const u_meshSkinnedBones = gl.getUniformLocation(meshSkinnedProgram, "u_bones");
-  const modelEntities = {
-    items: Array.from({ length: 64 }, () => ({
-      data: new Float32Array(MAX_BONES * 8),
-      modelId: 0,
-    })),
-    count: 0,
-  };
+
+  // sorted by modelId, we only rebind on change
+  const skinnedModelEntities: { data: Float32Array; modelId: number }[] = [];
   const modelVaos = skinedModelGeometries.map((g) => {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -402,136 +349,107 @@ export const createRenderer = (
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   const draw = () => {
-    //
-    // update buffer
-
     gl.bindBufferBase(gl.UNIFORM_BUFFER, UBO_BINDING_POINT_CAMERA, cameraUBOBuffer);
     gl.bufferData(gl.UNIFORM_BUFFER, cameraUBOArray, gl.DYNAMIC_DRAW);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, ballEntitiesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, ballEntitiesData, gl.DYNAMIC_DRAW, 0, ballsEntities.count * 20);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, spriteEntitiesBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      spriteEntitiesData,
-      gl.DYNAMIC_DRAW,
-      0,
-      spritesEntities.count * 20,
-    );
-
     //
-    // draw
+    // dynamic models
 
     gl.useProgram(meshProgram);
-    gl.bindVertexArray(groundVao);
-    gl.drawArrays(gl.TRIANGLES, 0, groundGeometry.vertexCount);
+    for (let i = 0; i < dynamicModels.length; i++) {
+      const g = dynamicModels[i];
+      if (!g) continue;
 
-    gl.bindVertexArray(ballVao);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, ballVertexCount, ballsEntities.count);
+      const m = dynamicModelResources[i];
 
-    gl.bindVertexArray(bushesVao);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, bushesVertexCount, bushesCount);
+      gl.bindVertexArray(m.vao);
+
+      if (m.uploadedVersion !== g.version) {
+        m.uploadedVersion = g.version;
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, m.positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, g.positions, gl.STATIC_DRAW, 0, g.vertexCount * 3);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, m.normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, g.normals, gl.STATIC_DRAW, 0, g.vertexCount * 3);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, m.colorIndexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, g.colorIndex, gl.STATIC_DRAW, 0, g.vertexCount);
+      }
+
+      gl.drawArrays(gl.TRIANGLES, 0, g.vertexCount);
+    }
+
+    //
+    // instantiated models
+
+    for (let i = 0; i < instantiatedModelVaos.length; i++) {
+      const m = instantiatedModelVaos[i];
+      const e = instantiatedModelEntities[i];
+
+      gl.bindVertexArray(m.vao);
+
+      if (m.uploadedVersion !== e.version) {
+        m.uploadedVersion = e.version;
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, m.entitiesBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, e.data, gl.DYNAMIC_DRAW, 0, e.count * ENTITY_STRIDE);
+      }
+
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, m.vertexCount, e.count);
+    }
+
+    //
+    // skinned models
 
     gl.useProgram(meshSkinnedProgram);
     let modelId = -1;
-    for (let i = 0; i < modelEntities.count; i++) {
-      const item = modelEntities.items[i];
-
-      if (item.modelId !== modelId) {
-        modelId = item.modelId;
+    for (const e of skinnedModelEntities) {
+      if (e.modelId !== modelId) {
+        modelId = e.modelId;
         gl.bindVertexArray(modelVaos[modelId].vao);
       }
 
       gl.uniform4fv(
         u_meshSkinnedBones,
-        item.data,
+        e.data,
         0,
-        skinedModelGeometries[modelId].bonesCount * 8,
+        skinedModelGeometries[modelId].bonesCount * BONE_STRIDE,
       );
 
       gl.drawArrays(gl.TRIANGLES, 0, modelVaos[modelId].vertexCount);
     }
 
+    //
+    // sprites
+
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
+
+    if (spritesUploadedVersion !== spritesEntities.version) {
+      spritesUploadedVersion = spritesEntities.version;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, spriteEntitiesBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        spritesEntities.data,
+        gl.DYNAMIC_DRAW,
+        0,
+        spritesEntities.count * ENTITY_STRIDE,
+      );
+    }
+
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, spritesEntities.count);
-  };
-
-  const groundGeometry = createGroundGeometry();
-  const updateGround = (map: Map, range: [number, number]) => {
-    updateGroundGeometry(groundGeometry, map, range);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.positions);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      groundGeometry.positions,
-      gl.STATIC_DRAW,
-      0,
-      groundGeometry.vertexCount * 3,
-    );
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.normals);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      groundGeometry.normals,
-      gl.STATIC_DRAW,
-      0,
-      groundGeometry.vertexCount * 3,
-    );
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffer.colorIndex);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      groundGeometry.colorIndex,
-      gl.STATIC_DRAW,
-      0,
-      groundGeometry.vertexCount,
-    );
-
-    //
-    // bushes
-
-    let offset = 0;
-    let b = map.bushes.length;
-    for (let k = 8; k--;) {
-      const e = Math.floor((offset + b) / 2);
-      if (map.bushes[e][1] < range[0]) offset = e;
-      else b = e;
-    }
-
-    while (map.bushes[offset] && map.bushes[offset][1] < range[0]) offset++;
-
-    bushesCount = 0;
-    while (map.bushes[offset + bushesCount] && map.bushes[offset + bushesCount][1] <= range[1]) {
-      s[0] = s[1] = s[2] = map.bushes[offset + bushesCount][2];
-      v[0] = map.bushes[offset + bushesCount][0];
-      v[1] = map.bushes[offset + bushesCount][1];
-      mat4.fromRotationTranslationScale(m, q, v, s);
-
-      data.set(m, bushesCount * 20);
-
-      bushesCount++;
-    }
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, bushesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW, 0, bushesCount * 20);
   };
 
   return {
     resize,
-    updateGround,
     viewMatrix,
     projectionMatrix,
-    modelEntities,
+    dynamicModels,
+    skinnedModelEntities,
     spritesEntities,
-    ballsEntities,
+    instantiatedModelEntities,
     draw,
   };
 };
-
-const s = new Float32Array(3) as vec3;
-const v = new Float32Array(3) as vec3;
-const q = new Float32Array(4) as quat;
-const m = new Float32Array(20) as mat4;
-const data = new Float32Array(100_000);

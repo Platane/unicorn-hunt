@@ -7,7 +7,7 @@ export const createGroundGeometry = () => {
   const positions = new Float32Array(colorIndex.length * 3);
   const normals = new Float32Array(colorIndex.length * 3);
 
-  return { positions, normals, colorIndex, vertexCount: 0 };
+  return { positions, normals, colorIndex, vertexCount: 0, version: 0 };
 };
 
 export const updateGroundGeometry = (

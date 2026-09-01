@@ -10,11 +10,14 @@ layout(std140) uniform Camera {
 
 in vec3 v_position;
 
-out vec4 outColor;
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec3 outNormal;
 
 void main() {
     // flat shading
     vec3 normal = normalize(cross(dFdx(v_position), dFdy(v_position)));
+
+    outNormal = normal;
 
     float p = dot(normal, lightDirection);
 
