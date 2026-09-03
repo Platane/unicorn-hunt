@@ -22,8 +22,6 @@ export const createGameSync = (
 
   let startDate = Date.now();
 
-  let currentGeneration = 0;
-
   const hostId = net.getLobbyHostId(lobbyId as any) as any;
 
   let inputOrder = 0;
@@ -108,8 +106,11 @@ export const createGameSync = (
 
     // compute next
 
-    currentGeneration = Math.max(currentGeneration, (now - startDate) / 1000 / STEP_DURATION);
-    while (snapshots[0] && snapshots[0].generation < Math.floor(currentGeneration)) {
+    out.currentGeneration = Math.max(
+      out.currentGeneration,
+      (now - startDate) / 1000 / STEP_DURATION,
+    );
+    while (snapshots[0] && snapshots[0].generation < Math.floor(out.currentGeneration)) {
       const frameInputs = inputs
         .filter((i) => i.generation === snapshots[0].generation)
         .sort((a, b) => a.order - b.order);
@@ -129,7 +130,7 @@ export const createGameSync = (
     const i = {
       ...input,
       generation: Math.floor(
-        Math.max(currentGeneration, (Date.now() - startDate) / 1000 / STEP_DURATION),
+        Math.max(out.currentGeneration, (Date.now() - startDate) / 1000 / STEP_DURATION),
       ),
       order: inputOrder++,
       playerId,
@@ -156,6 +157,7 @@ export const createGameSync = (
     registerInput,
     snapshots,
     hostLatency: 100,
+    currentGeneration: 0,
     map: undefined as undefined | Map,
   };
 

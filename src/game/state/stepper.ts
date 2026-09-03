@@ -9,19 +9,14 @@ const DIRECTIONS = Array.from({ length: 16 }, (_, i) =>
 );
 
 export const STEP_DURATION = 1 / 20;
-export const HUNTER_SPEED = 1;
+export const HUNTER_SPEED = 2;
 export const WILD_UNICORN_SPEED = 0.6;
-export const MOUNTED_UNICORN_SPEED = 1.4;
-export const HUNTER_ON_TRAIL_SPEED = 1.4;
-export const HUNTER_JUMP_DURATION = 20;
+export const MOUNTED_UNICORN_SPEED = 3;
+export const HUNTER_ON_TRAIL_SPEED = 3;
+export const HUNTER_JUMP_DURATION = 16;
 
-// ploughing through a hurdle on foot. it must not be zero: the stagger is
-// re-armed every tick spent inside, so a hunter stopped in one would never get
-// out again
 export const HUNTER_STAGGERED_SPEED = 0.35;
-// how long it lingers once out. only the tail matters, inside it is re-armed
-export const HUNTER_STAGGER_DURATION = 6;
-
+export const HUNTER_STAGGER_DURATION = 3;
 export const TRAIL_RADIUS = 1.4;
 
 export const UNICORN_RADIUS = 0.5;
@@ -37,7 +32,7 @@ const COLLISION_SAFETY_MARGIN = 0.2;
 // TODO
 // - resolve unicorn collision with the same codepath as hunters
 //    - do the hunter / unicorn collision first, so they get removed from the list
-// - mounted unicorn leave a speed trail
+// - speed boost obstacle
 
 export const step = (
   map: Map,
@@ -179,7 +174,7 @@ export const step = (
       ) {
         if (
           vec2.squaredDistance(map.obstacles[a], hunter.position) <
-          (HUNTER_RADIUS + map.obstacles[a][2]) ** 2
+          (HUNTER_RADIUS / 2 + map.obstacles[a][2]) ** 2
         )
           hunter.staggered = HUNTER_STAGGER_DURATION;
 

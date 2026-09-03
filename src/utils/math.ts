@@ -1,6 +1,6 @@
-export const lerp = (value: number, min: number, max: number) => (1 - value) * min + value * max;
+export const lerp = (min: number, max: number, value: number) => (1 - value) * min + value * max;
 
-export const invLerp = (value: number, min: number, max: number) => (value - min) / (max - min);
+export const invLerp = (min: number, max: number, value: number) => (value - min) / (max - min);
 
-export const clamp = (value: number, min: number, max: number) =>
+export const clamp = (min: number, max: number, value: number) =>
   Math.min(Math.max(value, min), max);

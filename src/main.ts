@@ -11,6 +11,8 @@ import { applyDecorum, applyGround, applyWorld } from "./applyWorld";
 import { createRecursiveSphere } from "./renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "./renderer/geometries/ground";
 import { setBoneAt } from "./utils/transform";
+import { WorldSnapshot } from "./game/state/types";
+import { lerpWorld } from "./lerpWorld";
 
 let playerId = "me";
 let state: (ReturnType<typeof createGameSync> & { joinUrl?: string }) | undefined;
@@ -129,7 +131,10 @@ getModelsGeometry().then((geometries) => {
 // scratch, reused every frame
 const v = new Float32Array(3) as vec3;
 
-let renderedGroundOrigin = -10;
+let renderedGroundOrigin = -Infinity;
+
+let renderedWorldSnapshot: WorldSnapshot;
+let lastFrameDate = 0;
 
 let camera = {
   position: [0, -2, 10],
@@ -163,10 +168,9 @@ const loop = () => {
     //
     // init ground
     const player = s0.hunters.find((p) => p.id === playerId)!;
-
-    if (Math.abs(player.position[1] - renderedGroundOrigin) > 8 && state.map) {
+    if (Math.abs(player.position[1] - renderedGroundOrigin) > 16 && state.map) {
       renderedGroundOrigin = Math.round(player.position[1]);
-      const range: [number, number] = [renderedGroundOrigin - 16, renderedGroundOrigin + 16];
+      const range: [number, number] = [renderedGroundOrigin - 32, renderedGroundOrigin + 32];
       applyGround(state.map, range, groundGeometry);
       applyDecorum(state.map, range, renderer.instantiatedModelEntities[INSTANTIATED_MODEL_BUSH]);
     }
@@ -196,7 +200,31 @@ const loop = () => {
       .join("\n");
 
   if (s0) {
-    const player = s0.hunters.find((p) => p.id === playerId)!;
+    renderedWorldSnapshot = renderedWorldSnapshot ?? s0;
+
+    const target = lerpWorld(
+      state.snapshots[1] ?? state.snapshots[0],
+      state.snapshots[0],
+      state.currentGeneration % 1,
+    );
+
+    // exponential, expressed as a time constant so it does not depend on the
+    // framerate. first frame has no dt, snap
+    const now = Date.now();
+    const dt = lastFrameDate ? now - lastFrameDate : Infinity;
+    lastFrameDate = now;
+
+    // how fast the rendered world catches up with the interpolated target, in ms.
+    // 25 is ~0.5 per frame at 60fps
+    const CATCHUP_TAU = 25;
+
+    renderedWorldSnapshot = lerpWorld(
+      renderedWorldSnapshot,
+      target,
+      1 - Math.exp(-dt / CATCHUP_TAU),
+    );
+
+    const player = renderedWorldSnapshot.hunters.find((p) => p.id === playerId)!;
 
     const CAMERA_ALTITUDE = 10;
     vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
@@ -212,7 +240,7 @@ const loop = () => {
       [0, 1, 0],
     );
 
-    applyWorld(s0, renderer, playerId);
+    applyWorld(renderedWorldSnapshot, renderer, playerId);
 
     renderer.draw();
   }

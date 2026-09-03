@@ -74,7 +74,7 @@ export const createGridMap = (seed: number, rows: number) => {
 
     const halfWidth = between(h >>> 8, CORRIDOR_MIN_HALF_WIDTH, CORRIDOR_MAX_HALF_WIDTH);
 
-    center = clamp(center, -HALF_COLS + halfWidth + 1, HALF_COLS - halfWidth - 1);
+    center = clamp(-HALF_COLS + halfWidth + 1, HALF_COLS - halfWidth - 1, center);
 
     centers[r] = center;
     halfWidths[r] = halfWidth;
@@ -107,7 +107,7 @@ export const createGridMap = (seed: number, rows: number) => {
 
       if (returning && k * 2 > length) {
         // head home, so the cave comes out on the corridor further up
-        const home = centers[clamp(r, 0, rows - 1)];
+        const home = centers[clamp(0, rows - 1, r)];
         dc = Math.sign(home - c);
         dr = dc ? 0 : 1;
       } else if (h % 5 < 2) {

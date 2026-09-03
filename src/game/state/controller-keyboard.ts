@@ -14,6 +14,7 @@ export const createKeyboardController = (
   let keyboardX = 0;
   let keyboardY = 1;
 
+  let keyboardJumpDown = false;
   let gamepadJumpDown = false;
 
   let angle = Math.round((Math.atan2(keyboardY, keyboardX) / (Math.PI * 2)) * 16);
@@ -83,7 +84,8 @@ export const createKeyboardController = (
         keyboardX = dir === -1 ? 0 : 1;
         break;
       case " ":
-        jump = dir === 1;
+        jump = dir === 1 && !keyboardJumpDown;
+        keyboardJumpDown = dir === 1;
         break;
     }
 

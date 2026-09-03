@@ -10,7 +10,7 @@ import { createSpriteSheet } from "./geometries/sprite";
 import { createColorPalette } from "./geometries/colorPatette";
 import { getFlatShadingNormals } from "./geometries/utils/getFlatShadingNormals";
 
-export const MAX_ENTITIES = 1 << 10;
+export const MAX_ENTITIES = 1 << 11;
 export const MAX_BONES = 16;
 
 export const ENTITY_STRIDE = 4 * 5;

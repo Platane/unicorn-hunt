@@ -74,9 +74,9 @@ export const applyWorld = (
   const sprites = renderer.spritesEntities;
   sprites.count = 0;
 
-  const setSprite = (position: vec3, spriteBox: number[]) => {
+  const setSprite = (position: vec3, spriteBox: number[], size = 1) => {
     const o = sprites.count * ENTITY_STRIDE;
-    setTransformAt(sprites.data, o, position, q, 1);
+    setTransformAt(sprites.data, o, position, q, size);
     setVec4At(sprites.data, o + 16, spriteBox);
     sprites.count++;
   };
@@ -84,7 +84,7 @@ export const applyWorld = (
   snapshot.rainbowTrails.forEach((trail) => {
     trail.forEach((p) => {
       vec3.set(v, p[0], p[1], 0.002);
-      setSprite(v, SPRITE_BOX_STAR);
+      setSprite(v, SPRITE_BOX_STAR, 0.5);
     });
   });
 

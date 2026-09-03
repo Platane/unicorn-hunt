@@ -14,10 +14,10 @@ export const lerpWorld = (
   aWorld: WorldSnapshot,
   bWorld: WorldSnapshot,
   t: number,
-): WorldSnapshot => ({
-  ...bWorld,
+): WorldSnapshot => {
+  const rainbowTrails = [...bWorld.rainbowTrails];
 
-  hunters: bWorld.hunters.map((bHunter): Hunter => {
+  const hunters = bWorld.hunters.map((bHunter): Hunter => {
     const aHunter = aWorld.hunters.find((h) => h.id === bHunter.id);
     if (!aHunter) return bHunter;
 
@@ -33,9 +33,17 @@ export const lerpWorld = (
             }
           : bHunter.jumping,
     };
-  }),
+  });
 
-  unicorns: bWorld.unicorns.map((bUnicorn): Unicorn => {
+  for (const hunter of hunters)
+    if (hunter.riding) {
+      const tr = rainbowTrails[hunter.riding.trailIndex].slice();
+      tr.shift();
+      tr.unshift(hunter.position);
+      rainbowTrails[hunter.riding.trailIndex] = tr;
+    }
+
+  const unicorns = bWorld.unicorns.map((bUnicorn): Unicorn => {
     const aUnicorn = aWorld.unicorns.find((u) => u.id === bUnicorn.id);
     return aUnicorn
       ? {
@@ -44,7 +52,7 @@ export const lerpWorld = (
           direction: lerpDirection(aUnicorn.direction, bUnicorn.direction, t),
         }
       : bUnicorn;
-  }),
+  });
 
-  rainbowTrails: bWorld.rainbowTrails,
-});
+  return { ...bWorld, hunters, unicorns, rainbowTrails };
+};
