@@ -6,7 +6,7 @@ import { createKeyboardController } from "./game/state/controller-keyboard";
 import { createInitialState } from "./game/state/stepper";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { getModelsGeometry } from "./renderer/geometries/models";
-import { stepSpring3 } from "./utils/spring";
+import { stepSpring, stepSpring3 } from "./utils/spring";
 import { applyDecorum, applyGround, applyWorld } from "./applyWorld";
 import { createRecursiveSphere } from "./renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "./renderer/geometries/ground";
@@ -139,6 +139,7 @@ let lastFrameDate = 0;
 let camera = {
   position: [0, -2, 10],
   velocity: new Float32Array(3),
+  fov: Math.PI * 0.25,
 };
 
 const loop = () => {
@@ -200,6 +201,7 @@ const loop = () => {
       .join("\n");
 
   if (s0) {
+    // lerp the logical world
     renderedWorldSnapshot = renderedWorldSnapshot ?? s0;
 
     const target = lerpWorld(
@@ -208,8 +210,6 @@ const loop = () => {
       state.currentGeneration % 1,
     );
 
-    // exponential, expressed as a time constant so it does not depend on the
-    // framerate. first frame has no dt, snap
     const now = Date.now();
     const dt = lastFrameDate ? now - lastFrameDate : Infinity;
     lastFrameDate = now;
@@ -224,21 +224,34 @@ const loop = () => {
       1 - Math.exp(-dt / CATCHUP_TAU),
     );
 
+    //
     const player = renderedWorldSnapshot.hunters.find((p) => p.id === playerId)!;
 
-    const CAMERA_ALTITUDE = 10;
-    vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
+    // camera
+    {
+      const fovxTarget = player.riding && player.onTrail ? Math.PI * 0.2 : Math.PI * 0.25;
+      camera.fov = camera.fov * 0.9 + fovxTarget * 0.1;
 
-    stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 });
+      const aspect = c.width / c.height;
 
-    vec3.copy(camera.position, v);
+      const fovx = camera.fov;
+      const fovy = 2 * Math.atan(Math.tan(fovx / 2) / aspect);
+      mat4.perspective(renderer.projectionMatrix, fovy, aspect, 0.1, 2000);
 
-    mat4.lookAt(
-      renderer.viewMatrix,
-      camera.position,
-      [player.position[0], player.position[1] + 2, 0],
-      [0, 1, 0],
-    );
+      const CAMERA_ALTITUDE = 10;
+      vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
+
+      stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 }, dt);
+
+      vec3.copy(camera.position, v);
+
+      mat4.lookAt(
+        renderer.viewMatrix,
+        camera.position,
+        [player.position[0], player.position[1] + 2, 0],
+        [0, 1, 0],
+      );
+    }
 
     applyWorld(renderedWorldSnapshot, renderer, playerId);
 

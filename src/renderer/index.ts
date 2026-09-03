@@ -62,12 +62,6 @@ export const createRenderer = (
     canvas.height = height * dpr;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
-
-    const aspect = canvas.width / canvas.height;
-
-    const fovx = Math.PI / 4;
-    const fovy = 2 * Math.atan(Math.tan(fovx / 2) / aspect);
-    mat4.perspective(projectionMatrix, fovy, aspect, 0.1, 2000);
   };
 
   //
