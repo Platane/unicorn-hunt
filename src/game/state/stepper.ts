@@ -19,7 +19,6 @@ export const HUNTER_STAGGERED_SPEED = 0.35;
 export const HUNTER_STAGGER_DURATION = 3;
 export const TRAIL_RADIUS = 1.4;
 
-export const UNICORN_RADIUS = 0.5;
 export const HUNTER_RADIUS = 0.5;
 export const MAX_BUSH_RADIUS = 2;
 export const MAX_OBSTACLE_RADIUS = 1;
@@ -72,39 +71,10 @@ export const step = (
 
     unicorn.position[0] += unicorn.direction[0] * WILD_UNICORN_SPEED * STEP_DURATION;
     unicorn.position[1] += unicorn.direction[1] * WILD_UNICORN_SPEED * STEP_DURATION;
-
-    let a = 0;
-    let b = map.bushes.length;
-    for (let k = 8; k--;) {
-      const e = Math.floor((a + b) / 2);
-      if (map.bushes[e][1] < unicorn.position[1] - UNICORN_RADIUS - MAX_BUSH_RADIUS) a = e;
-      else b = e;
-    }
-
-    while (
-      map.bushes[a] &&
-      map.bushes[a][1] <= unicorn.position[1] + UNICORN_RADIUS + MAX_BUSH_RADIUS
-    ) {
-      const vx = map.bushes[a][0] - unicorn.position[0];
-      const vy = map.bushes[a][1] - unicorn.position[1];
-
-      const l = Math.hypot(vx, vy);
-
-      if (l <= 0) unicorn.position[1] += 1;
-      else {
-        const p = UNICORN_RADIUS + map.bushes[a][2] - l;
-        if (p > 0) {
-          unicorn.position[0] -= (vx / l) * p;
-          unicorn.position[1] -= (vy / l) * p;
-        }
-      }
-      a++;
-    }
   }
 
   //
   // move hunters
-  const islands: Island[] = [];
   for (const hunter of world.hunters) {
     if (hunter.riding && hunter.riding.remainingTime-- <= 0) hunter.riding = undefined;
     if (hunter.jumping && hunter.jumping.remainingTime-- <= 0) hunter.jumping = undefined;
@@ -139,7 +109,7 @@ export const step = (
       if (
         !hunter.riding &&
         vec2.squaredDistance(hunter.position, world.unicorns[i].position) <
-          (HUNTER_RADIUS + UNICORN_RADIUS / 2) ** 2
+          (HUNTER_RADIUS + HUNTER_RADIUS) ** 2
       ) {
         hunter.riding = { remainingTime: 300, trailIndex: world.rainbowTrails.length };
 
@@ -181,9 +151,15 @@ export const step = (
         a++;
       }
     }
+  }
 
-    //
-    // island construction
+  //
+  // build collision island
+  const islands: {
+    bodies: Set<{ position: vec2 }>;
+    circles: Set<vec3>;
+  }[] = [];
+  for (const body of [...world.hunters, ...world.unicorns]) {
     const circles = new Set<vec3>();
 
     let a = 0;
@@ -192,7 +168,7 @@ export const step = (
       const e = Math.floor((a + b) / 2);
       if (
         map.bushes[e][1] <
-        hunter.position[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN
+        body.position[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN
       )
         a = e;
       else b = e;
@@ -201,10 +177,10 @@ export const step = (
     while (
       map.bushes[a] &&
       map.bushes[a][1] <=
-        hunter.position[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
+        body.position[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
     ) {
       if (
-        vec2.squaredDistance(map.bushes[a], hunter.position) <
+        vec2.squaredDistance(map.bushes[a], body.position) <
         (HUNTER_RADIUS + map.bushes[a][2] + COLLISION_SAFETY_MARGIN) ** 2
       )
         circles.add(map.bushes[a]);
@@ -212,9 +188,7 @@ export const step = (
       a++;
     }
 
-    const hunters = new Set<{ position: vec2 }>();
-    hunters.add(hunter);
-    islands.push({ circles, hunters });
+    islands.push({ circles, bodies: new Set([body]) });
   }
 
   // merge islands
@@ -222,10 +196,10 @@ export const step = (
     for (let j = i; j--;) {
       if (
         islands[i].circles.values().some((c) => islands[j].circles.has(c)) ||
-        islands[i].hunters
+        islands[i].bodies
           .values()
           .some((p1) =>
-            islands[j].hunters
+            islands[j].bodies
               .values()
               .some(
                 (p2) =>
@@ -235,15 +209,15 @@ export const step = (
           )
       ) {
         islands[j].circles = islands[j].circles.union(islands[i].circles);
-        islands[j].hunters = islands[j].hunters.union(islands[i].hunters);
+        islands[j].bodies = islands[j].bodies.union(islands[i].bodies);
         islands.splice(i, 1);
         break;
       }
     }
 
   // resolve islands
-  for (const { hunters, circles } of islands) {
-    const ps = [...hunters.values()];
+  for (const { bodies, circles } of islands) {
+    const ps = [...bodies.values()];
 
     for (let k = 8; k--;) {
       pen.fill(0);
@@ -305,12 +279,7 @@ export const step = (
   return world;
 };
 
-const pen = new Float32Array(64);
-
-type Island = {
-  hunters: Set<{ position: vec2 }>;
-  circles: Set<vec3>;
-};
+const pen = new Float32Array(3 * 64);
 
 export const createInitialState = (): WorldSnapshot => ({
   generation: 0,

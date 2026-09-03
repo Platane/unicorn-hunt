@@ -90,14 +90,14 @@ export const applyWorld = (
 
   snapshot.hunters.forEach((p) => {
     const jumpHeight = p.jumping
-      ? Math.sqrt(1 - 2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION))
+      ? 1 - (2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION)) ** 2
       : 0;
 
-    vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight);
+    vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight * 2);
     setSprite(v, p.id === playerId ? SPRITE_BOX_COWBOY : SPRITE_BOX_NEMESIS);
 
     if (p.riding) {
-      vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight);
+      vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight * 2);
       setSprite(v, SPRITE_BOX_UNICORN);
     }
   });
