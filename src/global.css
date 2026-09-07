@@ -22,10 +22,3 @@ body {
   right: 0;
   z-index: 2;
 }
-#a {
-  position: absolute;
-  font-family: monospace;
-  bottom: 5;
-  right: 5;
-  z-index: 2;
-}

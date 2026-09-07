@@ -4,7 +4,11 @@ import { vec2 } from "gl-matrix";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { createMap, Map } from "./map";
 
-const inputMessage = new Uint8Array(5);
+// [generation hi, generation lo, order, playerIndex, angle, jump]
+// the input says who it is for. fromUserId only says who sent it, and one peer
+// sends for more than one player. the index is into the snapshot hunters, which
+// every peer already holds
+const inputMessage = new Uint8Array(6);
 
 export const createGameSync = (
   net: NetworkMesh,
@@ -71,11 +75,11 @@ export const createGameSync = (
       if (!message) break;
 
       const input = {
-        angle: message.payload[3],
-        jump: !!(message.payload[4] & 1),
-        order: message.payload[2],
         generation: (message.payload[0] << 8) + message.payload[1],
-        playerId: message.fromUserId,
+        order: message.payload[2],
+        playerId: snapshots[0]?.hunters[message.payload[3]]?.id ?? message.fromUserId,
+        angle: message.payload[4],
+        jump: !!(message.payload[5] & 1),
       };
       inputs.push(input);
 
@@ -126,7 +130,9 @@ export const createGameSync = (
       inputs.shift();
   };
 
-  const registerInput = (input: PlayerInput) => {
+  const registerInput = (input: PlayerInput, playerId: string) => {
+    if (!snapshots[0]) return;
+
     const i = {
       ...input,
       generation: Math.floor(
@@ -141,8 +147,10 @@ export const createGameSync = (
 
     inputMessage[2] = i.order;
 
-    inputMessage[3] = i.angle;
-    inputMessage[4] = +!!i.jump;
+    inputMessage[3] = snapshots[0].hunters.findIndex((h) => h.id === playerId);
+
+    inputMessage[4] = i.angle;
+    inputMessage[5] = +!!i.jump;
 
     inputs.push(i);
     net.broadcastP2PMessage(

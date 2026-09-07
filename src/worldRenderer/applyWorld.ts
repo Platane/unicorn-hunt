@@ -1,16 +1,16 @@
 import { quat, vec3 } from "gl-matrix";
-import { createRenderer, ENTITY_STRIDE, MAX_ENTITIES } from "./renderer";
-import { HUNTER_JUMP_DURATION } from "./game/state/stepper";
-import type { WorldSnapshot } from "./game/state/types";
-import type { Map } from "./game/state/map";
-import { setTransformAt, setVec4At } from "./utils/transform";
-import { createGroundGeometry, updateGroundGeometry } from "./renderer/geometries/ground";
+import { createRenderer, ENTITY_STRIDE, MAX_ENTITIES } from "../renderer";
+import { HUNTER_JUMP_DURATION } from "../game/state/stepper";
+import type { WorldSnapshot } from "../game/state/types";
+import type { Map } from "../game/state/map";
+import { setTransformAt, setVec4At } from "../utils/transform";
+import { createGroundGeometry, updateGroundGeometry } from "../renderer/geometries/ground";
 import {
   SPRITE_BOX_COWBOY,
   SPRITE_BOX_NEMESIS,
   SPRITE_BOX_STAR,
   SPRITE_BOX_UNICORN,
-} from "./renderer/geometries/sprite";
+} from "../renderer/geometries/sprite";
 
 // scratch, reused on every call
 const q = quat.identity(new Float32Array(4) as quat);

@@ -8,7 +8,6 @@ const HUNTER_TAP_RADIUS = 40; // px
 
 export const createKeyboardController = (
   registerInput: (i: PlayerInput) => void,
-  // hunter position in screen space, serves as the touch stick origin
   getHunterScreenPos: () => [number, number] | undefined = () => undefined,
 ) => {
   let keyboardX = 0;
@@ -69,6 +68,8 @@ export const createKeyboardController = (
 
   const handle = (dir: 1 | -1) => (e: KeyboardEvent) => {
     let jump = undefined;
+
+    e.preventDefault();
 
     switch (e.key) {
       case "ArrowUp":

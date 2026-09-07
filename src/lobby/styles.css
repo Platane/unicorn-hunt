@@ -1,5 +1,9 @@
-body.l {
-  position: fixed;
+/* the lobby lives inside #u, which is absolutely positioned and so out of the
+   body flex flow: it has to do its own centering. #u pins top/left/right only,
+   leaving its height to the content, so inset gives it something to center in.
+   pointer events come back on because the lobby is all buttons */
+body.l #u {
+  pointer-events: auto;
   inset: 0;
   display: flex;
   flex-direction: column;

@@ -1,6 +1,6 @@
 import { vec2 } from "gl-matrix";
-import { lerp } from "./utils/math";
-import type { Hunter, Unicorn, WorldSnapshot } from "./game/state/types";
+import { lerp } from "../utils/math";
+import type { Hunter, Unicorn, WorldSnapshot } from "../game/state/types";
 
 const lerpVec2 = (a: vec2, b: vec2, t: number) => vec2.lerp(new Float32Array(2) as vec2, a, b, t);
 

@@ -313,12 +313,17 @@ export const createRenderer = (
     gl.enableVertexAttribArray(a_boneWeight);
     gl.vertexAttribPointer(a_boneWeight, 4, gl.FLOAT, false, 0, 0);
 
+    // the skinned shader has no a_colorIndex, so the location comes back -1 and
+    // setting it up raises INVALID_VALUE. left guarded rather than deleted, for
+    // when the shader does take one
     const a_colorIndex = gl.getAttribLocation(meshSkinnedProgram, "a_colorIndex");
-    const colorIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(a_colorIndex);
-    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
+    if (a_colorIndex >= 0) {
+      const colorIndexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(a_colorIndex);
+      gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
+    }
 
     const a_boneIndex = gl.getAttribLocation(meshSkinnedProgram, "a_boneIndex");
     const boneIndexBuffer = gl.createBuffer();

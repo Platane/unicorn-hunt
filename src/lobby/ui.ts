@@ -1,55 +1,62 @@
 import "./styles.css";
+import type { Lobby, Player } from "./state";
+import { MAX_PLAYERS } from "./state";
 
-export type State =
-  | {
-      type: "in-lobby";
-      lobbyUrl: string;
-      lobbyId: unknown;
-      users: {
-        isHost: boolean;
-        avatarUrl?: string;
-        username: string;
-        id: unknown;
-      }[];
-      user: {
-        isHost: boolean;
-        avatarUrl?: string;
-        username: string;
-      };
-    }
-  | {
-      type: "in-lobby-selection";
-      user: {
-        avatarUrl?: string;
-        username: string;
-        id: unknown;
-      };
-    };
+export const createLobbyUi = (lobby: Lobby) => {
+  let roomId = "";
 
-type User = { isHost?: boolean; avatarUrl?: string; username: string };
-
-export const createLobbyUi = (onCreateLobby: () => void, onStart: () => void) => {
   document.body.onclick = (e) => {
-    const a = (e.target as HTMLElement).dataset.a;
-    if (a == "c") onCreateLobby();
-    else if (a == "s") onStart();
+    const t = e.target as HTMLElement;
+    const a = t.dataset.a;
+
+    if (a == "c") lobby.create();
+    else if (a == "s") lobby.start();
+    else if (a == "b") lobby.addBot();
+    else if (a == "j") lobby.join?.(roomId);
+    else if (a == "jj") lobby.join?.(t.dataset.id!);
   };
 
-  const user = (p: User) =>
-    `<li><img src="${p.avatarUrl}" width=64>${p.username}${(p.isHost && " 👑") || ""}`;
+  document.body.oninput = (e) => {
+    roomId = (e.target as HTMLInputElement).value;
+  };
 
-  const update = (s: State) => {
+  const seat = (p: Player, host = false) =>
+    `<li><img src="${p.avatarUrl ?? ""}" width=48>${p.username}${host ? " 👑" : ""}`;
+
+  const update = () => {
+    // the game draws its own overlay, so get out of the way
+    if (lobby.type == "playing") {
+      document.body.className = "g";
+      u.innerHTML = "";
+      return;
+    }
+
     document.body.className = "l";
 
-    if (s.type == "in-lobby-selection") {
-      u.innerHTML = `<ul>${user(s.user)}</ul><button data-a=c>new game`;
+    if (lobby.type == "browse") {
+      u.innerHTML =
+        `<h1>🦄 unicorn hunt` +
+        `<button data-a=c>new game</button>` +
+        (lobby.join
+          ? `<ul>${lobby.lobbies
+              .map(
+                (l) =>
+                  `<li>${l.name ?? l.lobbyId}<button data-a=jj data-id=${l.lobbyId}>join</button>`,
+              )
+              .join("")}</ul>` + `<input placeholder=room id><button data-a=j>join</button>`
+          : "");
+      return;
     }
 
-    if (s.type == "in-lobby") {
-      u.innerHTML = `<h1><a href=${s.lobbyUrl} target=_blank>${s.lobbyUrl}</a><ul>${s.users.map(user).join("")}</ul>${
-        (s.user.isHost && `<button data-a=s>start`) || "waiting for host"
-      }`;
-    }
+    const host = lobby.hostId == lobby.me.playerId;
+
+    u.innerHTML =
+      (lobby.joinUrl ? `<a href=${lobby.joinUrl} target=_blank>${lobby.joinUrl}</a>` : "") +
+      `<ul>${lobby.users.map((p) => seat(p, p.playerId == lobby.hostId)).join("")}${lobby.bots.map((p) => seat(p)).join("")}</ul>` +
+      (host
+        ? (lobby.bots.length + lobby.users.length < MAX_PLAYERS ? `<button data-a=b>add bot</button>` : "") +
+          `<button data-a=s>start</button>`
+        : "waiting for host");
   };
 
   return { update };
