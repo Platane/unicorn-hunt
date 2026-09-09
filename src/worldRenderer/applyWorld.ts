@@ -81,12 +81,12 @@ export const applyWorld = (
     sprites.count++;
   };
 
-  snapshot.rainbowTrails.forEach((trail) => {
-    trail.forEach((p) => {
-      vec3.set(v, p[0], p[1], 0.002);
-      setSprite(v, SPRITE_BOX_STAR, 0.5);
-    });
-  });
+  // snapshot.rainbowTrails.forEach((trail) => {
+  //   trail.forEach((p) => {
+  //     vec3.set(v, p[0], p[1], 0.002);
+  //     setSprite(v, SPRITE_BOX_STAR, 0.5);
+  //   });
+  // });
 
   snapshot.hunters.forEach((p) => {
     const jumpHeight = p.jumping

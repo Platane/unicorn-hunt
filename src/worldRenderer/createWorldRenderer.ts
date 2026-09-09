@@ -175,9 +175,9 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     //
     // rainbow ribbon
     {
-      const o = renderedTrailIndex;
+      const o = renderedTrailOffset;
       let i = renderedTrailIndex;
-      let offset = renderedTrailOffset;
+      let offset = 0;
       for (; i < renderedWorldSnapshot.rainbowTrails.length; i++) {
         offset = fillRainbowRibbon(
           rainbowRibbonGeometry.positions,
@@ -188,13 +188,13 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
         if (!renderedWorldSnapshot.hunters.some((h) => h.riding?.trailIndex === i)) {
           renderedTrailIndex = i + 1;
-          renderedTrailOffset = offset;
+          renderedTrailOffset = o + offset;
         }
       }
-      rainbowRibbonMesh.vertexCount = offset / 3;
+      rainbowRibbonMesh.vertexCount = (o + offset) / 3;
       const { gl } = renderer;
       gl.bindBuffer(gl.ARRAY_BUFFER, rainbowRibbonMesh.positionBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, rainbowRibbonGeometry.positions, gl.DYNAMIC_DRAW, 0, offset);
+      gl.bufferSubData(gl.ARRAY_BUFFER, o * 4, rainbowRibbonGeometry.positions, 0, offset);
     }
 
     renderer.draw();
