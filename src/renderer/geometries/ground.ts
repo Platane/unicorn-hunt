@@ -48,14 +48,14 @@ export const updateGroundGeometry = (
       const cx = x + o1;
       const dx = x + 1 + o1;
 
-      let color = u % 16;
+      let color = u % 11;
 
       if (o0) {
         push(ax, y, color);
         push(bx, y, color);
         push(dx, y + 1, color);
 
-        color = (u >> 4) % 16;
+        color = (u >> 4) % 11;
 
         push(ax, y, color);
         push(dx, y + 1, color);
@@ -65,7 +65,7 @@ export const updateGroundGeometry = (
         push(bx, y, color);
         push(cx, y + 1, color);
 
-        color = (u >> 4) % 16;
+        color = (u >> 4) % 11;
 
         push(bx, y, color);
         push(dx, y + 1, color);

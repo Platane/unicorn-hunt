@@ -21,6 +21,9 @@ createKeyboardController(
       : undefined,
 );
 
+lobby.create();
+lobby.start();
+
 lobby.onChange = ui.update;
 ui.update();
 

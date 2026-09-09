@@ -54,8 +54,9 @@ export const createLobbyUi = (lobby: Lobby) => {
       (lobby.joinUrl ? `<a href=${lobby.joinUrl} target=_blank>${lobby.joinUrl}</a>` : "") +
       `<ul>${lobby.users.map((p) => seat(p, p.playerId == lobby.hostId)).join("")}${lobby.bots.map((p) => seat(p)).join("")}</ul>` +
       (host
-        ? (lobby.bots.length + lobby.users.length < MAX_PLAYERS ? `<button data-a=b>add bot</button>` : "") +
-          `<button data-a=s>start</button>`
+        ? (lobby.bots.length + lobby.users.length < MAX_PLAYERS
+            ? `<button data-a=b>add bot</button>`
+            : "") + `<button data-a=s>start</button>`
         : "waiting for host");
   };
 

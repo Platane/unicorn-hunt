@@ -69,24 +69,27 @@ export const createKeyboardController = (
   const handle = (dir: 1 | -1) => (e: KeyboardEvent) => {
     let jump = undefined;
 
-    e.preventDefault();
-
     switch (e.key) {
       case "ArrowUp":
         keyboardY = dir === -1 ? 0 : 1;
+        e.preventDefault();
         break;
       case "ArrowDown":
         keyboardY = dir === -1 ? 0 : -1;
+        e.preventDefault();
         break;
       case "ArrowLeft":
         keyboardX = dir === -1 ? 0 : -1;
+        e.preventDefault();
         break;
       case "ArrowRight":
         keyboardX = dir === -1 ? 0 : 1;
+        e.preventDefault();
         break;
       case " ":
         jump = dir === 1 && !keyboardJumpDown;
         keyboardJumpDown = dir === 1;
+        e.preventDefault();
         break;
     }
 

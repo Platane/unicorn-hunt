@@ -1,6 +1,6 @@
 import { vec2 } from "gl-matrix";
 
-const COLOR_COUNT = 5;
+export const RAINBOW_COLOR_COUNT = 5;
 export const fillRainbowRibbon2 = (
   out: Float32Array,
   offset: number,
@@ -45,9 +45,9 @@ export const fillRainbowRibbon2 = (
       const k1 = j / n;
       const k2 = (j + 1) / n;
 
-      for (let i = 0; i < COLOR_COUNT; i++) {
-        const h1 = (i / COLOR_COUNT) * 2 - 1;
-        const h2 = ((i + 1) / COLOR_COUNT) * 2 - 1;
+      for (let i = 0; i < RAINBOW_COLOR_COUNT; i++) {
+        const h1 = (i / RAINBOW_COLOR_COUNT) * 2 - 1;
+        const h2 = ((i + 1) / RAINBOW_COLOR_COUNT) * 2 - 1;
 
         const ah1x = a[0] + na[0] * h1 * radius;
         const ah1y = a[1] + na[1] * h1 * radius;
@@ -161,7 +161,61 @@ export const fillRainbowRibbon = (
       (0.5 * (1 - vec2.dot(v, ta)) + 0.5 * (1 + vec2.dot(v, tb)) + 0.5 * (1 + vec2.dot(ta, tb))) /
       3;
 
-    const n = Math.max(1, Math.ceil(80 * curvature));
+    const n = Math.max(2, Math.ceil(60 * curvature));
+
+    let e,
+      ne,
+      te,
+      ze = 0;
+
+    if (i === 0) {
+      e = a;
+      ne = na;
+      te = ta;
+      ze = 0.00111;
+    } else if (i === controlPoints.length - 2) {
+      e = b;
+      ne = nb;
+      te = tb;
+      ze = 0.0001;
+    }
+    if (e && ne && te) {
+      for (let c = 0; c < RAINBOW_COLOR_COUNT; c++) {
+        const h1 = (c / RAINBOW_COLOR_COUNT) * 2 - 1;
+        const h2 = ((c + 1) / RAINBOW_COLOR_COUNT) * 2 - 1;
+
+        const y1 = Math.cos(Math.asin(h1)) * 0.6;
+        const y2 = Math.cos(Math.asin(h2)) * 0.6;
+
+        out[offset + 0] = e[0] + ne[0] * h1 * radius;
+        out[offset + 1] = e[1] + ne[1] * h1 * radius;
+        out[offset + 2] = ze;
+
+        out[offset + 3] = e[0] + ne[0] * h2 * radius;
+        out[offset + 4] = e[1] + ne[1] * h2 * radius;
+        out[offset + 5] = ze;
+
+        out[offset + 6] = e[0] + (ne[0] * h2 - te[0] * y2) * radius;
+        out[offset + 7] = e[1] + (ne[1] * h2 - te[1] * y2) * radius;
+        out[offset + 8] = ze;
+
+        offset += 9;
+
+        out[offset + 0] = e[0] + ne[0] * h1 * radius;
+        out[offset + 1] = e[1] + ne[1] * h1 * radius;
+        out[offset + 2] = ze;
+
+        out[offset + 3] = e[0] + (ne[0] * h1 - te[0] * y1) * radius;
+        out[offset + 4] = e[1] + (ne[1] * h1 - te[1] * y1) * radius;
+        out[offset + 5] = ze;
+
+        out[offset + 6] = e[0] + (ne[0] * h2 - te[0] * y2) * radius;
+        out[offset + 7] = e[1] + (ne[1] * h2 - te[1] * y2) * radius;
+        out[offset + 8] = ze;
+
+        offset += 9;
+      }
+    }
 
     for (let j = 0; j < n; j++) {
       const k1 = j / n;
@@ -181,35 +235,39 @@ export const fillRainbowRibbon = (
       t2[1] = cubicBezierTangent(a[1], ca[1], cb[1], b[1], k2);
       vec2.normalize(t2, t2);
 
-      for (let c = 0; c < COLOR_COUNT; c++) {
-        const h1 = (c / COLOR_COUNT) * 2 - 1;
-        const h2 = ((c + 1) / COLOR_COUNT) * 2 - 1;
+      for (let c = 0; c < RAINBOW_COLOR_COUNT; c++) {
+        const h1 = (c / RAINBOW_COLOR_COUNT) * 2 - 1;
+        const h2 = ((c + 1) / RAINBOW_COLOR_COUNT) * 2 - 1;
+
+        const z =
+          0.0001 +
+          (1 - (i + j / n + (c / RAINBOW_COLOR_COUNT) * 0.2) / controlPoints.length) * 0.001;
 
         out[offset + 0] = m1x + t1[1] * h1 * radius;
         out[offset + 1] = m1y - t1[0] * h1 * radius;
-        out[offset + 2] = 0;
+        out[offset + 2] = z;
 
         out[offset + 3] = m1x + t1[1] * h2 * radius;
         out[offset + 4] = m1y - t1[0] * h2 * radius;
-        out[offset + 5] = 0;
+        out[offset + 5] = z;
 
         out[offset + 6] = m2x + t2[1] * h2 * radius;
         out[offset + 7] = m2y - t2[0] * h2 * radius;
-        out[offset + 8] = 0;
+        out[offset + 8] = z;
 
         offset += 9;
 
         out[offset + 0] = m1x + t1[1] * h1 * radius;
         out[offset + 1] = m1y - t1[0] * h1 * radius;
-        out[offset + 2] = 0;
+        out[offset + 2] = z;
 
         out[offset + 3] = m2x + t2[1] * h1 * radius;
         out[offset + 4] = m2y - t2[0] * h1 * radius;
-        out[offset + 5] = 0;
+        out[offset + 5] = z;
 
         out[offset + 6] = m2x + t2[1] * h2 * radius;
         out[offset + 7] = m2y - t2[0] * h2 * radius;
-        out[offset + 8] = 0;
+        out[offset + 8] = z;
 
         offset += 9;
       }
@@ -241,3 +299,16 @@ const t2 = new Float32Array(2) as vec2;
 const v = new Float32Array(2) as vec2;
 const u = new Float32Array(2) as vec2;
 const z = new Float32Array(2) as vec2;
+
+export const createRainbowRibbonGeometry = () => {
+  const colorIndex = new Uint8Array(1 << 16);
+  const positions = new Float32Array(colorIndex.length * 3);
+  const normals = new Float32Array(colorIndex.length * 3);
+
+  for (let i = colorIndex.length; i--;) {
+    normals[i * 3 + 2] = 1;
+    colorIndex[i] = 15 - (Math.floor(i / 6) % RAINBOW_COLOR_COUNT);
+  }
+
+  return { positions, normals, colorIndex };
+};

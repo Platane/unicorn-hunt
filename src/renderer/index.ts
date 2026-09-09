@@ -42,7 +42,6 @@ export const createRenderer = (
     positions: Float32Array;
     colorIndexes: Uint8Array;
   }[],
-  dynamicModelCount: number,
 ) => {
   const gl = canvas.getContext("webgl2")!;
 
@@ -233,19 +232,11 @@ export const createRenderer = (
   }
 
   //
-  // dynamic models
+  // meshes
   //
-  const dynamicModels: {
-    positions: Float32Array;
-    normals: Float32Array;
-    colorIndex: Uint8Array;
-    vertexCount: number;
-    version: number;
-  }[] = Array.from({
-    length: dynamicModelCount,
-  });
+  const meshes: Mesh[] = [];
 
-  const dynamicModelResources = Array.from({ length: dynamicModelCount }, () => {
+  const addMesh = (): Mesh => {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
@@ -267,14 +258,24 @@ export const createRenderer = (
     gl.enableVertexAttribArray(a_colorIndex);
     gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
 
+    // left disabled, so the generic attribute value stands in: identity object matrix
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix1"), 1, 0, 0, 0);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix2"), 0, 1, 0, 0);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix3"), 0, 0, 1, 0);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_objectMatrix4"), 0, 0, 0, 1);
     gl.vertexAttrib4f(gl.getAttribLocation(meshProgram, "a_colorPalette"), 0, 0, 0, 0);
 
-    return { vao, positionBuffer, normalBuffer, colorIndexBuffer, uploadedVersion: -1 };
-  });
+    const mesh = {
+      vao,
+      positionBuffer,
+      normalBuffer,
+      colorIndexBuffer,
+      vertexCount: 0,
+    };
+    meshes.push(mesh);
+
+    return mesh;
+  };
 
   //
   // skinned models
@@ -352,31 +353,13 @@ export const createRenderer = (
     gl.bufferData(gl.UNIFORM_BUFFER, cameraUBOArray, gl.DYNAMIC_DRAW);
 
     //
-    // dynamic models
+    // meshes
 
     gl.useProgram(meshProgram);
-    for (let i = 0; i < dynamicModels.length; i++) {
-      const g = dynamicModels[i];
-      if (!g) continue;
-
-      const m = dynamicModelResources[i];
-
+    for (const m of meshes) {
       gl.bindVertexArray(m.vao);
-
-      if (m.uploadedVersion !== g.version) {
-        m.uploadedVersion = g.version;
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, m.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, g.positions, gl.STATIC_DRAW, 0, g.vertexCount * 3);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, m.normalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, g.normals, gl.STATIC_DRAW, 0, g.vertexCount * 3);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, m.colorIndexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, g.colorIndex, gl.STATIC_DRAW, 0, g.vertexCount);
-      }
-
-      gl.drawArrays(gl.TRIANGLES, 0, g.vertexCount);
+      gl.drawArrays(gl.TRIANGLES, 0, m.vertexCount);
+      // gl.drawArrays(gl.LINE_STRIP, 0, m.vertexCount);
     }
 
     //
@@ -445,10 +428,39 @@ export const createRenderer = (
     resize,
     viewMatrix,
     projectionMatrix,
-    dynamicModels,
+    gl,
+    addMesh,
     skinnedModelEntities,
     spritesEntities,
     instantiatedModelEntities,
     draw,
   };
+};
+
+export const uploadMesh = (
+  gl: WebGL2RenderingContext,
+  mesh: Mesh,
+  positions: Float32Array,
+  normals: Float32Array,
+  colorIndex: Uint8Array,
+  vertexCount: number,
+) => {
+  mesh.vertexCount = vertexCount;
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW, 0, vertexCount * 3);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW, 0, vertexCount * 3);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.colorIndexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, colorIndex, gl.STATIC_DRAW, 0, vertexCount);
+};
+
+export type Mesh = {
+  vao: WebGLVertexArrayObject;
+  positionBuffer: WebGLBuffer;
+  normalBuffer: WebGLBuffer;
+  colorIndexBuffer: WebGLBuffer;
+  vertexCount: number;
 };

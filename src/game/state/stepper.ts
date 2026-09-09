@@ -17,7 +17,7 @@ export const HUNTER_JUMP_DURATION = 16;
 
 export const HUNTER_STAGGERED_SPEED = 0.35;
 export const HUNTER_STAGGER_DURATION = 3;
-export const TRAIL_RADIUS = 1.4;
+export const TRAIL_RADIUS = 0.8;
 
 export const HUNTER_RADIUS = 0.5;
 export const MAX_BUSH_RADIUS = 2;

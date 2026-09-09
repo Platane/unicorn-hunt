@@ -1,5 +1,5 @@
 import { mat4, quat, vec3 } from "gl-matrix";
-import { BONE_STRIDE, createRenderer, MAX_BONES } from "../renderer";
+import { BONE_STRIDE, createRenderer, MAX_BONES, uploadMesh, type Mesh } from "../renderer";
 import { getModelsGeometry } from "../renderer/geometries/models";
 import { createRecursiveSphere } from "../renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "../renderer/geometries/ground";
@@ -9,9 +9,13 @@ import { applyDecorum, applyGround, applyWorld } from "./applyWorld";
 import { lerpWorld } from "./lerpWorld";
 import type { WorldSnapshot } from "../game/state/types";
 import type { createGameSync } from "../game/state/sync";
+import {
+  createRainbowRibbonGeometry,
+  fillRainbowRibbon,
+} from "../renderer/geometries/rainbowRibbon";
+import { TRAIL_RADIUS } from "../game/state/stepper";
 
 const INSTANTIATED_MODEL_BUSH = 0;
-const DYNAMIC_MODEL_GROUND = 0;
 
 const CAMERA_ALTITUDE = 10;
 
@@ -25,21 +29,34 @@ const createSphereGeometry = (tessellationStep: number) => {
 
 export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
   const groundGeometry = createGroundGeometry();
+  const rainbowRibbonGeometry = createRainbowRibbonGeometry();
 
   let renderer: ReturnType<typeof createRenderer>;
+  let groundMesh: Mesh;
+  let rainbowRibbonMesh: Mesh;
 
   const geometryPromise = getModelsGeometry().then((geometries) => {
-    renderer = createRenderer(canvas, geometries, [createSphereGeometry(3)], 1);
+    renderer = createRenderer(canvas, geometries, [createSphereGeometry(3)]);
 
-    renderer.dynamicModels[DYNAMIC_MODEL_GROUND] = groundGeometry;
+    groundMesh = renderer.addMesh();
+    rainbowRibbonMesh = renderer.addMesh();
+
+    uploadMesh(
+      renderer.gl,
+      rainbowRibbonMesh,
+      rainbowRibbonGeometry.positions,
+      rainbowRibbonGeometry.normals,
+      rainbowRibbonGeometry.colorIndex,
+      rainbowRibbonGeometry.colorIndex.length,
+    );
 
     // debug
     {
-      const data = new Float32Array(MAX_BONES * BONE_STRIDE);
-      const identity = quat.identity(new Float32Array(4) as quat);
-      const zero = new Float32Array(3) as vec3;
-      for (let k = MAX_BONES; k--;) setBoneAt(data, k * BONE_STRIDE, zero, identity);
-      renderer.skinnedModelEntities.push({ data, modelId: 0 });
+      // const data = new Float32Array(MAX_BONES * BONE_STRIDE);
+      // const identity = quat.identity(new Float32Array(4) as quat);
+      // const zero = new Float32Array(3) as vec3;
+      // for (let k = MAX_BONES; k--;) setBoneAt(data, k * BONE_STRIDE, zero, identity);
+      // renderer.skinnedModelEntities.push({ data, modelId: 0 });
     }
 
     window.onresize = () =>
@@ -50,6 +67,8 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
   // scratch, reused every frame
   const v = new Float32Array(3) as vec3;
 
+  let renderedTrailIndex = 0;
+  let renderedTrailOffset = 0;
   let renderedGroundOrigin = -Infinity;
   let renderedWorldSnapshot: WorldSnapshot | undefined;
   let lastFrameDate = 0;
@@ -91,6 +110,15 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
         renderedGroundOrigin = Math.round(p.position[1]);
         const range: [number, number] = [renderedGroundOrigin - 32, renderedGroundOrigin + 32];
         applyGround(state.map, range, groundGeometry);
+        uploadMesh(
+          renderer.gl,
+          groundMesh,
+          groundGeometry.positions,
+          groundGeometry.normals,
+          groundGeometry.colorIndex,
+          groundGeometry.vertexCount,
+        );
+
         applyDecorum(state.map, range, renderer.instantiatedModelEntities[INSTANTIATED_MODEL_BUSH]);
       }
     }
@@ -143,6 +171,31 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     }
 
     applyWorld(renderedWorldSnapshot, renderer, playerId);
+
+    //
+    // rainbow ribbon
+    {
+      const o = renderedTrailIndex;
+      let i = renderedTrailIndex;
+      let offset = renderedTrailOffset;
+      for (; i < renderedWorldSnapshot.rainbowTrails.length; i++) {
+        offset = fillRainbowRibbon(
+          rainbowRibbonGeometry.positions,
+          offset,
+          renderedWorldSnapshot.rainbowTrails[i],
+          TRAIL_RADIUS,
+        );
+
+        if (!renderedWorldSnapshot.hunters.some((h) => h.riding?.trailIndex === i)) {
+          renderedTrailIndex = i + 1;
+          renderedTrailOffset = offset;
+        }
+      }
+      rainbowRibbonMesh.vertexCount = offset / 3;
+      const { gl } = renderer;
+      gl.bindBuffer(gl.ARRAY_BUFFER, rainbowRibbonMesh.positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, rainbowRibbonGeometry.positions, gl.DYNAMIC_DRAW, 0, offset);
+    }
 
     renderer.draw();
   };

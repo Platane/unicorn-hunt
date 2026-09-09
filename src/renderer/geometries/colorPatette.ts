@@ -1,3 +1,5 @@
+import { RAINBOW_COLOR_COUNT } from "./rainbowRibbon";
+
 export const createColorPalette = () => {
   const canvas = document.createElement("canvas");
   canvas.width = 16;
@@ -7,6 +9,11 @@ export const createColorPalette = () => {
   for (let i = 16; i--;) {
     ctx.fillStyle = `hsl(${120 + i * 4.8},80%,50%)`;
     ctx.fillRect(i, 0, 1, 1);
+  }
+
+  for (let i = RAINBOW_COLOR_COUNT; i--;) {
+    ctx.fillStyle = `hsl(${(340 * i) / RAINBOW_COLOR_COUNT + 10},100%,50%)`;
+    ctx.fillRect(15 - i, 0, 1, 1);
   }
 
   for (let i = 8; i--;) {

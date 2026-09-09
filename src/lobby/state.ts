@@ -209,7 +209,6 @@ export const createLobby = (): Lobby => {
       lobby.bots.push({ playerId: "bot:" + n, username: "bot:" + n });
       lobby.onChange?.();
     },
-
   };
 
   if (w) {
