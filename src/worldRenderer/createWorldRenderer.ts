@@ -149,7 +149,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
       const fovy = 2 * Math.atan(Math.tan(camera.fov / 2) / aspect);
       mat4.perspective(renderer.projectionMatrix, fovy, aspect, 2, 80);
 
-      vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
+      vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.6, CAMERA_ALTITUDE);
 
       stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 }, dt);
 
@@ -193,9 +193,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
         geometries[e.modelId].applyPose(
           e.data,
           0,
-          UNICORN_WALKING_POSES[0],
-          UNICORN_WALKING_POSES[0],
-          0,
+          ...cyclePoses(UNICORN_WALKING_POSES, Date.now() / 280),
           [...u.position, 0],
           q,
         );
@@ -218,9 +216,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           geometries[e.modelId].applyPose(
             e.data,
             0,
-            HUNTER_SITTING_POSE,
-            HUNTER_SITTING_POSE,
-            0,
+            ...cyclePoses(HUNTER_SITTING_POSES, Date.now() / 230),
             [...h.position, jumpHeight + 0.5],
             q,
           );
@@ -232,22 +228,29 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           geometries[u.modelId].applyPose(
             u.data,
             0,
-            UNICORN_WALKING_POSES[0],
-            UNICORN_WALKING_POSES[0],
-            0,
+            ...cyclePoses(UNICORN_RUNNING_POSES, Date.now() / 60),
             [...h.position, jumpHeight],
             q,
           );
         } else {
-          geometries[e.modelId].applyPose(
-            e.data,
-            0,
-            HUNTER_WALKING_POSES[0],
-            HUNTER_WALKING_POSES[0],
-            0,
-            [...h.position, jumpHeight],
-            q,
-          );
+          if (jumpHeight > 0)
+            geometries[e.modelId].applyPose(
+              e.data,
+              0,
+              HUNTER_WALKING_POSES[0],
+              HUNTER_WALKING_POSES[0],
+              0,
+              [...h.position, jumpHeight],
+              q,
+            );
+          else
+            geometries[e.modelId].applyPose(
+              e.data,
+              0,
+              ...cyclePoses(HUNTER_WALKING_POSES, Date.now() / 230),
+              [...h.position, jumpHeight],
+              q,
+            );
         }
       });
 
@@ -285,8 +288,17 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
   return { step, getHunterScreenPos, ready: geometryPromise };
 };
 
+const cyclePoses = (poses: number[], k: number) => {
+  const u = k / poses.length;
+  const a = Math.floor(u) % poses.length;
+  const b = (a + 1) % poses.length;
+
+  return [poses[a], poses[b], u % 1] as [number, number, number];
+};
+
 const HUNTER_IDLE_POSE = 2;
 const HUNTER_WALKING_POSES = [3, 4];
-const HUNTER_SITTING_POSE = 5;
+const HUNTER_SITTING_POSES = [5, 6];
 
 const UNICORN_WALKING_POSES = [2, 3];
+const UNICORN_RUNNING_POSES = [4, 5, 6];

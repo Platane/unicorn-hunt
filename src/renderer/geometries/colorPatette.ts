@@ -29,6 +29,8 @@ export const createColorPalette = () => {
   ctx.fillRect(6, UNICORN_VARIANTS[1], 1, 9999);
   ctx.fillStyle = "#553b11";
   ctx.fillRect(7, UNICORN_VARIANTS[0], 1, 9999);
+  ctx.fillStyle = "#755219";
+  ctx.fillRect(7, UNICORN_VARIANTS[0], 1, 9999);
   ctx.fillStyle = "#fff";
   ctx.fillRect(8, UNICORN_VARIANTS[0], 1, 9999);
   ctx.fillStyle = "#333";
