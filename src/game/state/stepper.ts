@@ -29,9 +29,8 @@ const COLLISION_SAFETY_MARGIN = 0.2;
 
 //
 // TODO
-// - resolve unicorn collision with the same codepath as hunters
-//    - do the hunter / unicorn collision first, so they get removed from the list
 // - speed boost obstacle
+// - rubber banding
 
 export const step = (
   map: Map,
@@ -111,7 +110,11 @@ export const step = (
         vec2.squaredDistance(hunter.position, world.unicorns[i].position) <
           (HUNTER_RADIUS + HUNTER_RADIUS) ** 2
       ) {
-        hunter.riding = { remainingTime: 300, trailIndex: world.rainbowTrails.length };
+        hunter.riding = {
+          remainingTime: 300,
+          unicornId: world.unicorns[i].id,
+          trailIndex: world.rainbowTrails.length,
+        };
 
         world.rainbowTrails.push([[...hunter.position], [...hunter.position]]);
         world.unicorns.splice(i, 1);

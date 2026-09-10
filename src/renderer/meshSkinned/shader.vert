@@ -12,12 +12,17 @@ layout(std140) uniform Camera {
 
 // 2 vec4 per bone, the rotation quaternion then the translation in .xyz
 uniform vec4 u_bones[MAX_BONES * 2];
+uniform uint u_colorPalette;
+
+uniform sampler2D u_colorPalettesTexture;
 
 in vec3 a_position;
 in vec4 a_boneWeight;
 in uvec4 a_boneIndex;
+in uint a_colorIndex;
 
 out vec3 v_position;
+out vec3 v_color;
 
 vec3 qrot(vec4 q, vec3 v) {
     return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
@@ -35,6 +40,11 @@ void main() {
 
     // the fragment shader derives the flat normal from this
     v_position = p;
+
+    v_color = texelFetch(u_colorPalettesTexture, ivec2(int(a_colorIndex), int(u_colorPalette)), 0).xyz;
+
+    float k = float(u_colorPalette) / 10.0;
+    // v_color = vec3(k, k, k);
 
     gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }

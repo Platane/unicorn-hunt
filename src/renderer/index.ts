@@ -214,6 +214,8 @@ export const createRenderer = (
     version: 0,
   }));
 
+  //
+  // color palette
   {
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + TEXTURE_INDEX_COLOR_PALETTES);
@@ -292,8 +294,14 @@ export const createRenderer = (
   );
   const u_meshSkinnedBones = gl.getUniformLocation(meshSkinnedProgram, "u_bones");
 
+  gl.useProgram(meshSkinnedProgram);
+  gl.uniform1i(
+    gl.getUniformLocation(meshSkinnedProgram, "u_colorPalettesTexture"),
+    TEXTURE_INDEX_COLOR_PALETTES,
+  );
+
   // sorted by modelId, we only rebind on change
-  const skinnedModelEntities: { data: Float32Array; modelId: number }[] = [];
+  const skinnedModelEntities: { data: Float32Array; colorPalette: number; modelId: number }[] = [];
   const modelVaos = skinedModelGeometries.map((g) => {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -318,13 +326,11 @@ export const createRenderer = (
     // setting it up raises INVALID_VALUE. left guarded rather than deleted, for
     // when the shader does take one
     const a_colorIndex = gl.getAttribLocation(meshSkinnedProgram, "a_colorIndex");
-    if (a_colorIndex >= 0) {
-      const colorIndexBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(a_colorIndex);
-      gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
-    }
+    const colorIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorIndexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, g.colorIndexes, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(a_colorIndex);
+    gl.vertexAttribIPointer(a_colorIndex, 1, gl.UNSIGNED_BYTE, 0, 0);
 
     const a_boneIndex = gl.getAttribLocation(meshSkinnedProgram, "a_boneIndex");
     const boneIndexBuffer = gl.createBuffer();
@@ -379,6 +385,7 @@ export const createRenderer = (
       }
 
       gl.drawArraysInstanced(gl.TRIANGLES, 0, m.vertexCount, e.count);
+      // gl.drawArraysInstanced(gl.LINE_STRIP, 0, m.vertexCount, e.count);
     }
 
     //
@@ -391,6 +398,7 @@ export const createRenderer = (
         modelId = e.modelId;
         gl.bindVertexArray(modelVaos[modelId].vao);
       }
+      gl.uniform1ui(gl.getUniformLocation(meshSkinnedProgram, "u_colorPalette"), e.colorPalette);
 
       gl.uniform4fv(
         u_meshSkinnedBones,
@@ -400,6 +408,7 @@ export const createRenderer = (
       );
 
       gl.drawArrays(gl.TRIANGLES, 0, modelVaos[modelId].vertexCount);
+      // gl.drawArrays(gl.LINE_STRIP, 0, modelVaos[modelId].vertexCount);
     }
 
     //

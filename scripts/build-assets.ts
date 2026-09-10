@@ -1,169 +1,263 @@
-import { NodeIO, Scene, Node } from "@gltf-transform/core";
-import { reorder, weld } from "@gltf-transform/functions";
-import { MeshoptEncoder } from "meshoptimizer";
-import { mat4, vec3, quat } from "gl-matrix";
+import { NodeIO } from "@gltf-transform/core";
+import { quat } from "gl-matrix";
 
 /**
  * file format
  *
- * 1     uint16    triangle count  = N
- * 1     uint8     bones count  = B
- * 1     uint8     animation count  = A
- * 3     float16   bbox min x,y,z
- * 3     float16   bbox size x,y,z
+ * the model is a set of boxes.
  *
- * N*3   uint8     triangle vertex indexes   -> we can infer the vertex count from that V
+ * 1     uint8     model count = M
+ * 3     float32   bbox min x,y,z          global, covers cube centers and bone positions
+ * 3     float32   bbox size x,y,z
+ * 1     float32   max cube half extent    global, quantization range for the sizes
  *
- * V*3   uint8     vertex position quantified into the bbox
+ * M*
+ *    1  uint8     cube count
+ *    1  uint8     bone count
+ *    1  uint8     pose count              the first pose is always the rest pose
  *
- * B*
- *    1 uint8      parent id
- *    3 uint8      global position quantified
- *    4 uint8      rotation as quat quantified
+ * then, plane by plane, every model one after the other:
  *
- * A*
- *    1 uint8      bone mask
- *    1 uint8      duration in second
+ *   cube colors       per cube  1 uint8   index into the model's own color list
+ *   cube sizes        per cube  3 uint8   half extent over the global max
+ *   cube centers      per cube  3 uint8   quantized into the bbox
+ *   cube rotations    per cube  4 uint8   smallest three
  *
- *    for each bones in the mask
- *       1 uint8   number ok keys = K
+ *   bones             per bone  1 uint8   parent index, 255 for a root
+ *                               3 uint8   global position quantized into the bbox
+ *                               4 uint8   rest rotation, smallest three
  *
- *       K*
- *          1 uint8 key time
- *          4 uint8 rotation
+ *   poses             per pose, per bone
+ *                               4 uint8   local rotation, smallest three
  *
+ * a rotation is packed as smallest three: the largest component is dropped and
+ * recomputed as sqrt(1 - a^2 - b^2 - c^2), which leaves 2 bits for its index and
+ * 10 bits for each of the other three. same 4 bytes as a byte per component, but
+ * the stored components are bounded by 1/sqrt(2) rather than 1, so ~5x the precision.
  */
+
+const MODELS = ["hunter", "hat", "unicorn"];
+
+// bones the blender exporter or the rig leaves behind. they are leaves at the end
+// of the joint list, so dropping them shifts no index. neutral_bone matters: it sits
+// at the origin, inside the model, so computeBoneWeights would hand it real weight.
+const JUNK_BONE = /^neutral_bone|^useless/;
+
+const POSE_STRIDE = 12; // frames between two poses, at blender's 24fps
+
+// blender units are much bigger than world units. folded into the quantization
+// ranges, so it costs nothing at decode time
+const MODEL_SCALE = 1 / 8;
 
 const document = await new NodeIO().readBinary(
   new Uint8Array(await Bun.file(__dirname + "/../src/assets/Unicorn.glb").arrayBuffer()),
 );
 
-// weld merges duplicated vertices, reorder optimizes the triangle order for
-// vertex cache locality and renumbers the vertices in first use order
-await MeshoptEncoder.ready;
-await document.transform(weld(), reorder({ encoder: MeshoptEncoder }));
+const root = document.getRoot();
 
-const printTree = (node: Node | Scene, depth = 0) => {
-  console.log(
-    "  ".repeat(depth) +
-      node.getName() +
-      (node instanceof Node && node.getMesh() ? "  [mesh]" : "") +
-      (node instanceof Node && node.getSkin() ? "  [skin]" : ""),
-  );
-  for (const child of node.listChildren()) printTree(child, depth + 1);
-};
-printTree(document.getRoot().listScenes()[0]);
+//
+// gather
+//
+const models = MODELS.map((name) => {
+  const groupNode = root.listNodes().find((n) => n.getName() === name);
+  if (!groupNode) throw new Error(`no node named "${name}"`);
 
-// TODO:
-// - delta encode the indexes
+  // the group node is itself a cube, the rest hang off it
+  const cubeNodes = [groupNode, ...groupNode.listChildren()];
 
-const models = document
-  .getRoot()
-  .listMeshes()
-  .map((mesh) => {
-    const node = mesh
-      .listParents()
-      .slice()
-      .reverse()
-      .find((n) => n instanceof Node)!;
+  const skin = root.listSkins().find((s) => s.getName() === name + " Armature");
+  if (!skin) throw new Error(`no skin named "${name} Armature"`);
 
-    const primitive = mesh.listPrimitives()[0];
-    const indices = primitive.getIndices()!.getArray()!;
-    const positions = primitive.getAttribute("POSITION")!.getArray()!;
-    const skin = node.getSkin();
-    const joints = skin?.listJoints() ?? [];
+  const joints = skin.listJoints().filter((j) => !JUNK_BONE.test(j.getName()));
 
-    console.log(
-      node.getName().padEnd(16, " "),
-      "triangle count:",
-      indices.length / 3,
-      "vertex count:",
-      positions.length / 3,
-    );
+  const animation = root
+    .listAnimations()
+    .find((a) => a.listChannels().some((c) => joints.includes(c.getTargetNode()!)));
+  if (!animation) throw new Error(`no animation targeting "${name} Armature"`);
 
-    const worldMatrix = node.getWorldMatrix() as mat4;
-
-    // compute bbox
-    const bbox = {
-      min: [Infinity, Infinity, Infinity],
-      max: [-Infinity, -Infinity, -Infinity],
-      size: vec3.create(),
-    };
-    for (let i = 0; i < positions.length; i += 3) {
-      const p = positions.slice(i, i + 3);
-      // vec3.transformMat4(p, p, worldMatrix);  somehow
-
-      for (let k = 3; k--;) {
-        bbox.max[k] = Math.max(bbox.max[k], p[k]);
-        bbox.min[k] = Math.min(bbox.min[k], p[k]);
-      }
-    }
-    for (const joint of joints) {
-      const p = joint.getWorldTranslation();
-
-      for (let k = 3; k--;) {
-        bbox.max[k] = Math.max(bbox.max[k], p[k]);
-        bbox.min[k] = Math.min(bbox.min[k], p[k]);
-      }
-    }
-    vec3.sub(bbox.size, bbox.max, bbox.min);
-
-    // header
-    const header = new Uint8Array(2 + 1 + 3 * 2 + 3 * 2);
-    {
-      const view = new DataView(header.buffer);
-
-      view.setUint16(0, indices.length / 3);
-      view.setUint8(2, joints.length);
-      view.setFloat16(3 + 0 * 2, bbox.min[0]);
-      view.setFloat16(3 + 1 * 2, bbox.min[1]);
-      view.setFloat16(3 + 2 * 2, bbox.min[2]);
-
-      view.setFloat16(3 + 3 * 2, bbox.size[0]);
-      view.setFloat16(3 + 4 * 2, bbox.size[1]);
-      view.setFloat16(3 + 5 * 2, bbox.size[2]);
-    }
-
-    // position
-    const quantPositions = new Uint8Array(positions.length);
-    for (let i = 0; i < positions.length; i += 3) {
-      const p = positions.slice(i, i + 3);
-      // vec3.transformMat4(p, p, worldMatrix);
-
-      for (let u = 0; u < 3; u++)
-        quantPositions[i + u] = Math.round(((p[u] - bbox.min[u]) / bbox.size[u]) * 255);
-    }
-
-    // bones
-    const bones = new Uint8Array(joints.length * (1 + 3 + 4));
-    for (let i = 0; i < joints.length; i++) {
-      const joint = joints[i];
-
-      const parent = joint.getParentNode();
-      let parentIndex = joints.findIndex((j) => j === parent);
-      if (parentIndex === -1) parentIndex = 255;
-
-      bones[i * (1 + 3 + 4) + 0] = parentIndex;
-
-      const p = joint.getWorldTranslation();
-      for (let u = 0; u < 3; u++)
-        bones[i * (1 + 3 + 4) + 1 + u] = Math.round(((p[u] - bbox.min[u]) / bbox.size[u]) * 255);
-
-      const q = new Float32Array(joint.getRotation());
-      quat.normalize(q, q);
-      for (let u = 0; u < 4; u++)
-        bones[i * (1 + 3 + 4) + 4 + u] = Math.round(((1 + q[u]) / 2) * 255);
-    }
-
-    return { header, quantPositions, indices: new Uint8Array(indices), bones };
+  // one rotation track per bone, sampled at every frame by the exporter.
+  // a bone with no track never moves, so it stays at its rest rotation.
+  const tracks = joints.map((joint) => {
+    const channel = animation
+      .listChannels()
+      .find((c) => c.getTargetNode() === joint && c.getTargetPath() === "rotation");
+    return channel?.getSampler()?.getOutput()?.getArray() ?? null;
   });
 
-Bun.file(__dirname + "/../src/assets/models.bin").write(
-  Buffer.concat([
-    new Uint8Array([models.length]),
-    ...models.map(({ header }) => header),
-    ...models.map(({ indices }) => indices),
-    ...models.map(({ quantPositions }) => quantPositions),
-    ...models.map(({ bones }) => bones),
-  ]),
+  const sampleCount = Math.max(...tracks.map((t) => (t ? t.length / 4 : 0)), 1);
+
+  const cubes = cubeNodes.map((node) => {
+    const material = node.getMesh()?.listPrimitives()[0].getMaterial();
+    return {
+      center: node.getWorldTranslation() as [number, number, number],
+      rotation: node.getWorldRotation() as [number, number, number, number],
+      // blender mirror modifiers leave negative scale. a box is symmetric under
+      // reflection and we generate its faces ourselves, so the sign carries nothing
+      size: (node.getWorldScale() as number[]).map(Math.abs) as [number, number, number],
+      color: material ? material.getBaseColorFactor().slice(0, 3).join(",") : "",
+    };
+  });
+
+  // colors are scoped to the model, merged by value. blender keeps duplicates
+  // around (black / black.001 / black.002) that are the same colour
+  const colors = [...new Set(cubes.map((c) => c.color))];
+
+  return { name, cubes, colors, joints, tracks, sampleCount };
+});
+
+//
+// quantization ranges
+//
+const bbox = { min: [Infinity, Infinity, Infinity], size: [0, 0, 0] };
+const max = [-Infinity, -Infinity, -Infinity];
+let maxCubeSize = 0;
+
+for (const model of models) {
+  for (const cube of model.cubes) {
+    for (let k = 3; k--;) {
+      bbox.min[k] = Math.min(bbox.min[k], cube.center[k]);
+      max[k] = Math.max(max[k], cube.center[k]);
+      maxCubeSize = Math.max(maxCubeSize, cube.size[k]);
+    }
+  }
+  for (const joint of model.joints) {
+    const p = joint.getWorldTranslation();
+    for (let k = 3; k--;) {
+      bbox.min[k] = Math.min(bbox.min[k], p[k]);
+      max[k] = Math.max(max[k], p[k]);
+    }
+  }
+}
+for (let k = 3; k--;) bbox.size[k] = max[k] - bbox.min[k];
+
+//
+// encoding
+//
+const bytes: number[] = [];
+
+const u8 = (v: number) => bytes.push(Math.max(0, Math.min(255, Math.round(v))));
+
+const quantPosition = (p: ArrayLike<number>) => {
+  for (let k = 0; k < 3; k++) u8(((p[k] - bbox.min[k]) / bbox.size[k]) * 255);
+};
+
+const q = new Float32Array(4) as quat;
+
+/** smallest three, 2 bits for the dropped index then 10 bits each, big endian */
+const quantRotation = (r: ArrayLike<number>) => {
+  quat.set(q, r[0], r[1], r[2], r[3]);
+  quat.normalize(q, q);
+
+  let largest = 0;
+  for (let k = 1; k < 4; k++) if (Math.abs(q[k]) > Math.abs(q[largest])) largest = k;
+
+  // q and -q are the same rotation, so we can always drop a positive component
+  // and recover it with a plain sqrt
+  const sign = q[largest] < 0 ? -1 : 1;
+
+  let packed = largest;
+  for (let k = 0; k < 4; k++) {
+    if (k === largest) continue;
+    const c = (sign * q[k]) / Math.SQRT1_2; // bounded by 1 now
+    packed = packed * 1024 + Math.max(0, Math.min(1023, Math.round((c * 0.5 + 0.5) * 1023)));
+  }
+
+  // not u8(), that rounds. these are bit slices of a 32 bit value
+  bytes.push(Math.floor(packed / 0x1000000) & 0xff);
+  bytes.push((packed >>> 16) & 0xff);
+  bytes.push((packed >>> 8) & 0xff);
+  bytes.push(packed & 0xff);
+};
+
+// file header
+u8(models.length);
+{
+  const head = new DataView(new ArrayBuffer(7 * 4));
+  for (let k = 0; k < 3; k++) {
+    head.setFloat32(k * 4, bbox.min[k] * MODEL_SCALE);
+    head.setFloat32(12 + k * 4, bbox.size[k] * MODEL_SCALE);
+  }
+  head.setFloat32(24, maxCubeSize * MODEL_SCALE);
+  for (const b of new Uint8Array(head.buffer)) bytes.push(b);
+}
+
+// model headers
+for (const model of models) {
+  u8(model.cubes.length);
+  u8(model.joints.length);
+  u8(Math.floor((model.sampleCount - 1) / POSE_STRIDE) + 2); // + the rest pose
+}
+
+// cube colors
+for (const model of models) for (const cube of model.cubes) u8(model.colors.indexOf(cube.color));
+
+// cube sizes
+for (const model of models)
+  for (const cube of model.cubes)
+    for (let k = 0; k < 3; k++) u8((cube.size[k] / maxCubeSize) * 255);
+
+// cube centers
+for (const model of models) for (const cube of model.cubes) quantPosition(cube.center);
+
+// cube rotations
+for (const model of models) for (const cube of model.cubes) quantRotation(cube.rotation);
+
+// bones, interleaved
+for (const model of models)
+  for (const joint of model.joints) {
+    const parent = joint.getParentNode();
+    const parentIndex = model.joints.findIndex((j) => j === parent);
+    u8(parentIndex === -1 ? 255 : parentIndex);
+
+    quantPosition(joint.getWorldTranslation());
+    quantRotation(joint.getRotation());
+  }
+
+// poses. the first one is the rest pose, the rest are sampled every POSE_STRIDE frames
+for (const model of models) {
+  for (const joint of model.joints) void joint;
+
+  const poseCount = Math.floor((model.sampleCount - 1) / POSE_STRIDE) + 2;
+
+  for (let p = 0; p < poseCount; p++)
+    for (let b = 0; b < model.joints.length; b++) {
+      const track = model.tracks[b];
+
+      if (p === 0 || !track) {
+        quantRotation(model.joints[b].getRotation());
+        continue;
+      }
+
+      const sample = Math.min((p - 1) * POSE_STRIDE, track.length / 4 - 1);
+      quantRotation(track.subarray(sample * 4, sample * 4 + 4));
+    }
+}
+
+await Bun.file(__dirname + "/../src/assets/models.bin").write(new Uint8Array(bytes));
+
+//
+// report
+//
+for (const model of models)
+  console.log(
+    model.name.padEnd(9),
+    "cubes",
+    String(model.cubes.length).padStart(3),
+    "bones",
+    String(model.joints.length).padStart(3),
+    "poses",
+    String(Math.floor((model.sampleCount - 1) / POSE_STRIDE) + 2).padStart(2),
+    "colors",
+    String(model.colors.length).padStart(2),
+    model.cubes.some((c) => !c.color) ? " <- some cubes have no material" : "",
+  );
+console.log(
+  "\nbbox",
+  bbox.min.map((v) => (v * MODEL_SCALE).toFixed(2)).join(","),
+  "size",
+  bbox.size.map((v) => (v * MODEL_SCALE).toFixed(2)).join(","),
+  "maxCubeSize",
+  (maxCubeSize * MODEL_SCALE).toFixed(3),
+  `(scaled by ${MODEL_SCALE})`,
 );
+console.log("models.bin", bytes.length, "bytes");

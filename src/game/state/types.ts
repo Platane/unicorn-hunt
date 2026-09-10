@@ -11,7 +11,7 @@ export type Hunter = {
   id: string;
   direction: vec2;
   position: vec2;
-  riding?: { remainingTime: number; trailIndex: number };
+  riding?: { remainingTime: number; trailIndex: number; unicornId: number };
   jumping?: { remainingTime: number; direction: vec2 };
   staggered?: number;
   onTrail?: number;

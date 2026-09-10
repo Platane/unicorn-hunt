@@ -1,9 +1,8 @@
-import { mat4, quat, vec3 } from "gl-matrix";
+import { mat4, vec3, quat } from "gl-matrix";
 import { BONE_STRIDE, createRenderer, MAX_BONES, uploadMesh, type Mesh } from "../renderer";
-import { getModelsGeometry } from "../renderer/geometries/models";
+import { getModelsGeometry, HUNTER_MODELID, UNICORN_MODELID } from "../renderer/geometries/models";
 import { createRecursiveSphere } from "../renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "../renderer/geometries/ground";
-import { setBoneAt } from "../utils/transform";
 import { stepSpring3 } from "../utils/spring";
 import { applyDecorum, applyGround, applyWorld } from "./applyWorld";
 import { lerpWorld } from "./lerpWorld";
@@ -13,7 +12,8 @@ import {
   createRainbowRibbonGeometry,
   fillRainbowRibbon,
 } from "../renderer/geometries/rainbowRibbon";
-import { TRAIL_RADIUS } from "../game/state/stepper";
+import { HUNTER_JUMP_DURATION, TRAIL_RADIUS } from "../game/state/stepper";
+import { HUNTERS_VARIANTS, UNICORN_VARIANTS } from "../renderer/geometries/colorPatette";
 
 const INSTANTIATED_MODEL_BUSH = 0;
 
@@ -32,10 +32,12 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
   const rainbowRibbonGeometry = createRainbowRibbonGeometry();
 
   let renderer: ReturnType<typeof createRenderer>;
+  let geometries: Awaited<ReturnType<typeof getModelsGeometry>> = [];
   let groundMesh: Mesh;
   let rainbowRibbonMesh: Mesh;
 
-  const geometryPromise = getModelsGeometry().then((geometries) => {
+  const geometryPromise = getModelsGeometry().then((g) => {
+    geometries = g;
     renderer = createRenderer(canvas, geometries, [createSphereGeometry(3)]);
 
     groundMesh = renderer.addMesh();
@@ -49,15 +51,6 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
       rainbowRibbonGeometry.colorIndex,
       rainbowRibbonGeometry.colorIndex.length,
     );
-
-    // debug
-    {
-      // const data = new Float32Array(MAX_BONES * BONE_STRIDE);
-      // const identity = quat.identity(new Float32Array(4) as quat);
-      // const zero = new Float32Array(3) as vec3;
-      // for (let k = MAX_BONES; k--;) setBoneAt(data, k * BONE_STRIDE, zero, identity);
-      // renderer.skinnedModelEntities.push({ data, modelId: 0 });
-    }
 
     window.onresize = () =>
       renderer.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
@@ -154,7 +147,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
       const aspect = canvas.width / canvas.height;
       const fovy = 2 * Math.atan(Math.tan(camera.fov / 2) / aspect);
-      mat4.perspective(renderer.projectionMatrix, fovy, aspect, 0.1, 2000);
+      mat4.perspective(renderer.projectionMatrix, fovy, aspect, 2, 80);
 
       vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.3, CAMERA_ALTITUDE);
 
@@ -171,6 +164,95 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     }
 
     applyWorld(renderedWorldSnapshot, renderer, playerId);
+
+    {
+      //
+      // entities
+
+      let skinnedEntityIndex = 0;
+      const getNextEntity = () => {
+        while (!renderer.skinnedModelEntities[skinnedEntityIndex])
+          renderer.skinnedModelEntities.push({
+            data: new Float32Array(MAX_BONES * BONE_STRIDE),
+            modelId: 0,
+            colorPalette: 0,
+          });
+        const e = renderer.skinnedModelEntities[skinnedEntityIndex];
+        skinnedEntityIndex++;
+        return e;
+      };
+
+      renderedWorldSnapshot.unicorns.forEach((u) => {
+        const e = getNextEntity();
+        e.modelId = UNICORN_MODELID;
+        e.colorPalette = UNICORN_VARIANTS[u.id % UNICORN_VARIANTS.length];
+
+        const q = new Float32Array(4) as quat;
+        quat.fromEuler(q, 0, 0, (Math.atan2(u.direction[0], -u.direction[1]) / Math.PI) * 180);
+
+        geometries[e.modelId].applyPose(
+          e.data,
+          0,
+          UNICORN_WALKING_POSES[0],
+          UNICORN_WALKING_POSES[0],
+          0,
+          [...u.position, 0],
+          q,
+        );
+      });
+
+      renderedWorldSnapshot.hunters.forEach((h) => {
+        const q = new Float32Array(4) as quat;
+        quat.fromEuler(q, 0, 0, (Math.atan2(h.direction[0], -h.direction[1]) / Math.PI) * 180);
+
+        const jumpHeight = h.jumping
+          ? 1 - (2 * Math.abs(0.5 - h.jumping.remainingTime / HUNTER_JUMP_DURATION)) ** 2
+          : 0;
+
+        const e = getNextEntity();
+
+        e.modelId = HUNTER_MODELID;
+        e.colorPalette = HUNTERS_VARIANTS[0];
+
+        if (h.riding) {
+          geometries[e.modelId].applyPose(
+            e.data,
+            0,
+            HUNTER_SITTING_POSE,
+            HUNTER_SITTING_POSE,
+            0,
+            [...h.position, jumpHeight + 0.5],
+            q,
+          );
+
+          const u = getNextEntity();
+
+          u.modelId = UNICORN_MODELID;
+          u.colorPalette = UNICORN_VARIANTS[h.riding.unicornId % UNICORN_VARIANTS.length];
+          geometries[u.modelId].applyPose(
+            u.data,
+            0,
+            UNICORN_WALKING_POSES[0],
+            UNICORN_WALKING_POSES[0],
+            0,
+            [...h.position, jumpHeight],
+            q,
+          );
+        } else {
+          geometries[e.modelId].applyPose(
+            e.data,
+            0,
+            HUNTER_WALKING_POSES[0],
+            HUNTER_WALKING_POSES[0],
+            0,
+            [...h.position, jumpHeight],
+            q,
+          );
+        }
+      });
+
+      renderer.skinnedModelEntities.length = skinnedEntityIndex;
+    }
 
     //
     // rainbow ribbon
@@ -202,3 +284,9 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
   return { step, getHunterScreenPos, ready: geometryPromise };
 };
+
+const HUNTER_IDLE_POSE = 2;
+const HUNTER_WALKING_POSES = [3, 4];
+const HUNTER_SITTING_POSE = 5;
+
+const UNICORN_WALKING_POSES = [2, 3];

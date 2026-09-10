@@ -1,5 +1,5 @@
 import { quat, vec3 } from "gl-matrix";
-import { createRenderer, ENTITY_STRIDE, MAX_ENTITIES } from "../renderer";
+import { BONE_STRIDE, createRenderer, ENTITY_STRIDE, MAX_BONES, MAX_ENTITIES } from "../renderer";
 import { HUNTER_JUMP_DURATION } from "../game/state/stepper";
 import type { WorldSnapshot } from "../game/state/types";
 import type { Map } from "../game/state/map";
@@ -11,14 +11,16 @@ import {
   SPRITE_BOX_STAR,
   SPRITE_BOX_UNICORN,
 } from "../renderer/geometries/sprite";
+import { UNICORN_MODELID } from "../renderer/geometries/models";
+import {
+  BUSHES_VARIANTS,
+  OBSTACLES_VARIANTS,
+  UNICORN_VARIANTS,
+} from "../renderer/geometries/colorPatette";
 
 // scratch, reused on every call
 const q = quat.identity(new Float32Array(4) as quat);
 const v = new Float32Array(3) as vec3;
-
-// row of the palette texture, see createColorPalette
-const BUSH_COLOR_PALETTE = [0, 0, 0, 0];
-const OBSTACLE_COLOR_PALETTE = [3, 0, 0, 0];
 
 export const applyDecorum = (
   map: Map,
@@ -51,8 +53,8 @@ export const applyDecorum = (
   };
 
   // obstacles first, so a full buffer never drops the thing you have to react to
-  add(map.obstacles, OBSTACLE_COLOR_PALETTE);
-  add(map.bushes, BUSH_COLOR_PALETTE);
+  add(map.obstacles, OBSTACLES_VARIANTS);
+  add(map.bushes, BUSHES_VARIANTS);
 
   entities.version++;
 };
@@ -88,24 +90,24 @@ export const applyWorld = (
   //   });
   // });
 
-  snapshot.hunters.forEach((p) => {
-    const jumpHeight = p.jumping
-      ? 1 - (2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION)) ** 2
-      : 0;
+  // snapshot.hunters.forEach((p) => {
+  //   const jumpHeight = p.jumping
+  //     ? 1 - (2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION)) ** 2
+  //     : 0;
 
-    vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight * 2);
-    setSprite(v, p.id === playerId ? SPRITE_BOX_COWBOY : SPRITE_BOX_NEMESIS);
+  //   vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight * 2);
+  //   setSprite(v, p.id === playerId ? SPRITE_BOX_COWBOY : SPRITE_BOX_NEMESIS);
 
-    if (p.riding) {
-      vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight * 2);
-      setSprite(v, SPRITE_BOX_UNICORN);
-    }
-  });
+  //   if (p.riding) {
+  //     vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight * 2);
+  //     setSprite(v, SPRITE_BOX_UNICORN);
+  //   }
+  // });
 
-  snapshot.unicorns.forEach((p) => {
-    vec3.set(v, p.position[0], p.position[1], 0.01);
-    setSprite(v, SPRITE_BOX_UNICORN);
-  });
+  // snapshot.unicorns.forEach((u) => {
+  //   vec3.set(v, u.position[0], u.position[1], 0.01);
+  //   setSprite(v, SPRITE_BOX_UNICORN);
+  // });
 
   sprites.version++;
 };
