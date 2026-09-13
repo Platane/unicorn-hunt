@@ -220,6 +220,8 @@ export const createLobby = (): Lobby => {
     const launch = w.getLaunchParams().lobby;
     if (launch) lobby.join(launch);
     else pollLobbies();
+  } else {
+    lobby.create();
   }
 
   return lobby;

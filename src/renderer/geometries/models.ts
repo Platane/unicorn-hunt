@@ -183,13 +183,12 @@ export const getModelsGeometry = async () => {
       bones: m.bones,
       applyPose: (
         out: Float32Array,
-        outOffset: number,
         a: number,
         b: number,
         alpha: number,
         position: vec3,
         rotation: quat,
-      ) => applyPose(out, outOffset, m.bones, a, b, alpha, position, rotation),
+      ) => applyPose(out, m.bones, a, b, alpha, position, rotation),
     };
   });
 };
@@ -207,7 +206,6 @@ export const getModelsGeometry = async () => {
  */
 const applyPose = (
   out: Float32Array,
-  outOffset: number,
   bones: Bone[],
   a: number,
   b: number,
@@ -237,7 +235,7 @@ const applyPose = (
 
     vec3.transformQuat(p, bone.restPosition, q);
 
-    const o = outOffset + i * 8;
+    const o = i * 8;
     out[o + 0] = q[0];
     out[o + 1] = q[1];
     out[o + 2] = q[2];

@@ -1,6 +1,11 @@
 import { mat4, vec3, quat } from "gl-matrix";
 import { BONE_STRIDE, createRenderer, MAX_BONES, uploadMesh, type Mesh } from "../renderer";
-import { getModelsGeometry, HUNTER_MODELID, UNICORN_MODELID } from "../renderer/geometries/models";
+import {
+  getModelsGeometry,
+  HAT_MODELID,
+  HUNTER_MODELID,
+  UNICORN_MODELID,
+} from "../renderer/geometries/models";
 import { createRecursiveSphere } from "../renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "../renderer/geometries/ground";
 import { stepSpring3 } from "../utils/spring";
@@ -192,7 +197,6 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
         geometries[e.modelId].applyPose(
           e.data,
-          0,
           ...cyclePoses(UNICORN_WALKING_POSES, Date.now() / 280),
           [...u.position, 0],
           q,
@@ -212,10 +216,19 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
         e.modelId = HUNTER_MODELID;
         e.colorPalette = HUNTERS_VARIANTS[0];
 
+        // const hh = getNextEntity();
+        // hh.modelId = HAT_MODELID;
+        // hh.colorPalette = HUNTERS_VARIANTS[0];
+        // geometries[e.modelId].applyPose(
+        //   hh.data,
+        //   ...cyclePoses(HAT_POSES, Date.now() / 230),
+        //   [...h.position, jumpHeight * 1.05 + 1],
+        //   q,
+        // );
+
         if (h.riding) {
           geometries[e.modelId].applyPose(
             e.data,
-            0,
             ...cyclePoses(HUNTER_SITTING_POSES, Date.now() / 230),
             [...h.position, jumpHeight + 0.5],
             q,
@@ -227,7 +240,6 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           u.colorPalette = UNICORN_VARIANTS[h.riding.unicornId % UNICORN_VARIANTS.length];
           geometries[u.modelId].applyPose(
             u.data,
-            0,
             ...cyclePoses(UNICORN_RUNNING_POSES, Date.now() / 60),
             [...h.position, jumpHeight],
             q,
@@ -236,7 +248,6 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           if (jumpHeight > 0)
             geometries[e.modelId].applyPose(
               e.data,
-              0,
               HUNTER_WALKING_POSES[0],
               HUNTER_WALKING_POSES[0],
               0,
@@ -246,7 +257,6 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           else
             geometries[e.modelId].applyPose(
               e.data,
-              0,
               ...cyclePoses(HUNTER_WALKING_POSES, Date.now() / 230),
               [...h.position, jumpHeight],
               q,
@@ -302,3 +312,5 @@ const HUNTER_SITTING_POSES = [5, 6];
 
 const UNICORN_WALKING_POSES = [2, 3];
 const UNICORN_RUNNING_POSES = [4, 5, 6];
+
+const HAT_POSES = [2, 3];
