@@ -65,6 +65,50 @@ console.log("bun build ✅");
 }
 
 //
+// glsl
+{
+  const shaders = js.match(/`#version 300[^`]*`/g) ?? [];
+
+  const names = new Set(["Camera", "projectionMatrix", "viewMatrix", "lightDirection", "time"]);
+  for (const shader of shaders)
+    for (const [, name] of shader.matchAll(
+      /\b(?:in|out|uniform)\s+(?:uint|uvec2|uvec3|uvec4|int|float|vec2|vec3|vec4|mat3|mat4|sampler2D)\s+([auv]_\w+)/g,
+    ))
+      names.add(name);
+
+  for (const shader of shaders) {
+    const minified = shader
+      .slice(1, -1)
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*/g, "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => (line.startsWith("#") ? "\n" + line + "\n" : line))
+      .join(" ")
+      .replace(/\s*\n\s*/g, "\n")
+      .replace(/[ \t]*([^\w\s#.])[ \t]*/g, "$1")
+      .trim();
+
+    js = js.replace(shader, () => "`" + minified + "`");
+  }
+
+  const used = new Set(js.match(/\w+/g));
+  const map = new Map<string, string>();
+  let i = 0;
+  for (const name of names) {
+    let short;
+    do short = "z" + (i++).toString(36);
+    while (used.has(short));
+    map.set(name, short);
+  }
+
+  js = js.replace(new RegExp(`\\b(${[...map.keys()].join("|")})\\b`, "g"), (name) => map.get(name)!);
+}
+
+console.log("glsl ✅");
+
+//
 // closure compiler
 await Bun.write(tmpDir + "/closure-in.js", js);
 // prettier-ignore
@@ -76,6 +120,8 @@ await $`bunx google-closure-compiler ${[
   "--language_in", "ECMASCRIPT_2021",
   "--language_out", "ECMASCRIPT_2021",
   "--warning_level", "QUIET",
+  "--rewrite_polyfills=false",
+  "--inject_libraries=false",
 ]}`
 js = await Bun.file(tmpDir + "/closure-out.js").text();
 
