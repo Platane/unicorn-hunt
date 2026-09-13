@@ -26,7 +26,7 @@ export const createColorPalette = () => {
 
   // ctx.fillRect(5, HUNTERS_VARIANTS[0], 1, 3);
   {
-    const N = HUNTERS_VARIANTS.at(-1)! - HUNTERS_VARIANTS[0];
+    const N = HUNTERS_VARIANTS.at(-1)! - HUNTERS_VARIANTS[0] + 1;
     ctx.fillStyle = "#fff";
     ctx.fillRect(6, HUNTERS_VARIANTS[0], 1, N);
     ctx.fillStyle = "#333";
