@@ -13,6 +13,8 @@ const CORRIDOR_SEGMENT_LENGTH = [8, 16];
 const CORRIDOR_SEGMENT_WIDTH = [3, 6];
 const CORRIDOR_SEGMENT_X = [2, MAP_WIDTH - 2];
 
+const OBSTACLE_ROW_LENGTH = [2, 4];
+
 export const createGridMap = (seed: number) => {
   const grid: number[][] = Array.from({ length: MAP_HEIGHT }, () => Array(MAP_WIDTH).fill(WALL));
 

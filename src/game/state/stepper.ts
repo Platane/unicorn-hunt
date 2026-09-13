@@ -2,6 +2,7 @@ import { vec2, vec3 } from "gl-matrix";
 import { PlayerInput, WorldSnapshot } from "./types";
 import type { Map } from "./map";
 import { hashInt } from "../../utils/hash";
+import { lerp } from "../../utils/math";
 
 // input angles are quantified to 16 positions, precompute them
 const DIRECTIONS = Array.from({ length: 16 }, (_, i) =>
@@ -24,6 +25,11 @@ export const MAX_BUSH_RADIUS = 2;
 export const MAX_OBSTACLE_RADIUS = 1;
 
 const TRAIL_POINT_DISTANCE = 1;
+
+const UNICORN_SPAWN_INTERVAL = 20;
+const UNICORN_ZONE = 40;
+const UNICORN_SPAWN_AHEAD = [25, 40];
+const UNICORNS_PER_PLAYER = 2;
 
 const COLLISION_SAFETY_MARGIN = 0.2;
 
@@ -70,6 +76,31 @@ export const step = (
 
     unicorn.position[0] += unicorn.direction[0] * WILD_UNICORN_SPEED * STEP_DURATION;
     unicorn.position[1] += unicorn.direction[1] * WILD_UNICORN_SPEED * STEP_DURATION;
+  }
+
+  //
+  // spawn unicorns ahead of the first player
+  if (world.generation % UNICORN_SPAWN_INTERVAL === 0 && world.hunters.length) {
+    const firstY = Math.max(...world.hunters.map((h) => h.position[1]));
+
+    while (
+      world.unicorns.filter((u) => u.position[1] > firstY && u.position[1] < firstY + UNICORN_ZONE)
+        .length <
+      world.hunters.length * UNICORNS_PER_PLAYER
+    )
+      world.unicorns.push({
+        id: world.generation + world.unicorns.length * 12313,
+        position: new Float32Array([
+          0,
+          firstY +
+            lerp(
+              UNICORN_SPAWN_AHEAD[0],
+              UNICORN_SPAWN_AHEAD[1],
+              (hashInt(world.generation + world.unicorns.length) % 100) / 100,
+            ),
+        ]),
+        direction: [0, 1],
+      });
   }
 
   //
@@ -137,7 +168,6 @@ export const step = (
       let b = map.obstacles.length;
       for (let k = 8; k--;) {
         const e = Math.floor((a + b) / 2);
-        // the list can be empty
         if (map.obstacles[e]?.[1] < hunter.position[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
         else b = e;
       }
@@ -290,15 +320,5 @@ export const createInitialState = (): WorldSnapshot => ({
   seed: 0 | (Math.random() * (1 << 16)),
   hunters: [],
   rainbowTrails: [],
-  unicorns: [
-    { id: 13132, position: new Float32Array([0, 0]), direction: [1, 0] },
-    { id: 313132, position: new Float32Array([0, 2]), direction: [1, 0] },
-    { id: 1443132, position: new Float32Array([0, 3]), direction: [1, 0] },
-    { id: 1432, position: new Float32Array([0, 6]), direction: [1, 0] },
-    ...Array.from({ length: 10 }, (_, i) => ({
-      id: 0 | (i * 7777),
-      position: new Float32Array([2 + Math.random() * 10, i * 15 + Math.random() * 20]),
-      direction: [0, 1],
-    })),
-  ],
+  unicorns: [],
 });
