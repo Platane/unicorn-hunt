@@ -1,10 +1,12 @@
 # Unicorn hunt
 
+![game](./doc/thumbnail-800x500.png)
+
 [unicorn-hunt](https://platane.github.io/unicorn-hunt)
 
-Race your friends through a whimsical forest. Catch a unicorn and ride it for a huge speed boost!
-
-Someone grabbed one first? Run on their rainbow trail to keep up.
+> Race your friends through a whimsical forest. Catch a unicorn and ride it for a huge speed boost!
+>
+> Someone grabbed one first? Run on their rainbow trail to keep up.
 
 # Dev
 
