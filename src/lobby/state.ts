@@ -120,7 +120,13 @@ export const createLobby = (): Lobby => {
   // listeners go up before any join logic runs, per the sdk docs
   //
   if (w) {
-    w.init({ debug: true });
+    w.init({
+      debug: true,
+      p2p: {
+        messageSize: 64 * 1024, // 64k , max allowed, needed as we send snapshot of the world
+        maxIncomingMessages: 64,
+      },
+    });
 
     w.on(w.Events.LOBBY_JOINED, (p) =>
       enterRoom(
