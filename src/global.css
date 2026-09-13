@@ -13,12 +13,10 @@ body {
 }
 #u {
   position: absolute;
-  white-space: pre;
   font-family: monospace;
   pointer-events: none;
   padding: 10px;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 2;
 }

@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec3 } from "./glMatrix";
 
 /**
  * step the spring, mutate the state to reflect the state at t+dt

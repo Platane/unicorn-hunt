@@ -1,13 +1,13 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec3 } from "../utils/glMatrix";
 import meshFragmentShaderCode from "./mesh/shader.frag" with { type: "text" };
 import meshVertexShaderCode from "./mesh/shader.vert" with { type: "text" };
 import meshSkinnedFragmentShaderCode from "./meshSkinned/shader.frag" with { type: "text" };
 import meshSkinnedVertexShaderCode from "./meshSkinned/shader.vert" with { type: "text" };
-import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" };
-import spriteVertexShaderCode from "./sprite/shader.vert" with { type: "text" };
+// import spriteFragmentShaderCode from "./sprite/shader.frag" with { type: "text" };
+// import spriteVertexShaderCode from "./sprite/shader.vert" with { type: "text" };
 import { createProgram } from "./utils";
-import { createSpriteSheet } from "./geometries/sprite";
-import { createColorPalette } from "./geometries/colorPatette";
+// import { createSpriteSheet } from "./geometries/sprite";
+import { PALETTE_SIZE } from "./geometries/models";
 import { getFlatShadingNormals } from "./geometries/utils/getFlatShadingNormals";
 
 export const MAX_ENTITIES = 1 << 13;
@@ -18,7 +18,7 @@ export const BONE_STRIDE = 8;
 
 const UBO_BINDING_POINT_CAMERA = 1;
 
-const TEXTURE_INDEX_SPRITE_SHEET = 0;
+// const TEXTURE_INDEX_SPRITE_SHEET = 0;
 const TEXTURE_INDEX_COLOR_PALETTES = 1;
 
 /**
@@ -42,6 +42,7 @@ export const createRenderer = (
     positions: Float32Array;
     colorIndexes: Uint8Array;
   }[],
+  colorPalette: Uint8Array,
 ) => {
   const gl = canvas.getContext("webgl2")!;
 
@@ -66,6 +67,7 @@ export const createRenderer = (
   //
   // sprite
   //
+  /*
   const spriteProgram = createProgram(gl, spriteVertexShaderCode, spriteFragmentShaderCode);
 
   gl.uniformBlockBinding(
@@ -148,6 +150,7 @@ export const createRenderer = (
       TEXTURE_INDEX_SPRITE_SHEET,
     );
   }
+  */
 
   //
   // instantiated models
@@ -220,7 +223,17 @@ export const createRenderer = (
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + TEXTURE_INDEX_COLOR_PALETTES);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, createColorPalette());
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      PALETTE_SIZE,
+      PALETTE_SIZE,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      colorPalette,
+    );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -414,6 +427,7 @@ export const createRenderer = (
     //
     // sprites
 
+    /*
     gl.useProgram(spriteProgram);
     gl.bindVertexArray(spriteVao);
 
@@ -431,6 +445,7 @@ export const createRenderer = (
     }
 
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, spritesEntities.count);
+    */
   };
 
   return {
@@ -440,7 +455,7 @@ export const createRenderer = (
     gl,
     addMesh,
     skinnedModelEntities,
-    spritesEntities,
+    // spritesEntities,
     instantiatedModelEntities,
     draw,
   };

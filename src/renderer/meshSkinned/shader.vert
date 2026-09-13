@@ -43,8 +43,5 @@ void main() {
 
     v_color = texelFetch(u_colorPalettesTexture, ivec2(int(a_colorIndex), int(u_colorPalette)), 0).xyz;
 
-    float k = float(u_colorPalette) / 10.0;
-    // v_color = vec3(k, k, k);
-
     gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }

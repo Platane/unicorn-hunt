@@ -4,7 +4,6 @@ import { MAX_PLAYERS } from "./state";
 import { getHunterColor } from "../renderer/geometries/colorPatette";
 
 export const createLobbyUi = (lobby: Lobby) => {
-  let roomId = "";
 
   document.body.onclick = (e) => {
     const t = e.target as HTMLElement;
@@ -13,12 +12,7 @@ export const createLobbyUi = (lobby: Lobby) => {
     if (a == "c") lobby.create();
     else if (a == "s") lobby.start();
     else if (a == "b") lobby.addBot();
-    else if (a == "j") lobby.join?.(roomId);
     else if (a == "jj") lobby.join?.(t.dataset.id!);
-  };
-
-  document.body.oninput = (e) => {
-    roomId = (e.target as HTMLInputElement).value;
   };
 
   // i is the player index, users then bots, same order as the hunters in game
@@ -49,8 +43,7 @@ export const createLobbyUi = (lobby: Lobby) => {
                 (l) =>
                   `<li>${l.name ?? l.lobbyId}<button data-a=jj data-id=${l.lobbyId}>join</button>`,
               )
-              .join("")}</ul>` + `<input placeholder=room id><button data-a=j>join</button>`
-          : "");
+              .join("")}</ul>`          : "");
       return;
     }
 

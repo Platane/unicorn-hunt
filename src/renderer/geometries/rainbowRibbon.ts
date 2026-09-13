@@ -1,4 +1,4 @@
-import { vec2 } from "gl-matrix";
+import { vec2 } from "../../utils/glMatrix";
 
 export const RAINBOW_COLOR_COUNT = 5;
 export const fillRainbowRibbon2 = (

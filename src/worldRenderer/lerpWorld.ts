@@ -1,4 +1,4 @@
-import { vec2 } from "gl-matrix";
+import { vec2 } from "../utils/glMatrix";
 import { lerp } from "../utils/math";
 import type { Hunter, Unicorn, WorldSnapshot } from "../game/state/types";
 
@@ -23,8 +23,8 @@ export const lerpWorld = (
 
     return {
       ...bHunter,
-      position: lerpVec2(aHunter.position, bHunter.position, t),
-      direction: lerpDirection(aHunter.direction, bHunter.direction, t),
+      p: lerpVec2(aHunter.p, bHunter.p, t),
+      d: lerpDirection(aHunter.d, bHunter.d, t),
       jumping:
         bHunter.jumping && aHunter.jumping
           ? {
@@ -39,7 +39,7 @@ export const lerpWorld = (
     if (hunter.riding) {
       const tr = rainbowTrails[hunter.riding.trailIndex].slice();
       tr.shift();
-      tr.unshift(hunter.position);
+      tr.unshift(hunter.p);
       rainbowTrails[hunter.riding.trailIndex] = tr;
     }
 
@@ -48,8 +48,8 @@ export const lerpWorld = (
     return aUnicorn
       ? {
           ...bUnicorn,
-          position: lerpVec2(aUnicorn.position, bUnicorn.position, t),
-          direction: lerpDirection(aUnicorn.direction, bUnicorn.direction, t),
+          p: lerpVec2(aUnicorn.p, bUnicorn.p, t),
+          d: lerpDirection(aUnicorn.d, bUnicorn.d, t),
         }
       : bUnicorn;
   });

@@ -87,12 +87,12 @@ export const createColorPalette = () => {
     }
   }
 
-  canvas.style.position = "absolute";
-  canvas.style.bottom = "0";
-  canvas.style.right = "0";
-  canvas.style.width = "64px";
-  canvas.style.imageRendering = "pixelated";
-  document.body.appendChild(canvas);
+  // canvas.style.position = "absolute";
+  // canvas.style.bottom = "0";
+  // canvas.style.right = "0";
+  // canvas.style.width = "64px";
+  // canvas.style.imageRendering = "pixelated";
+  // document.body.appendChild(canvas);
 
   return canvas;
 };

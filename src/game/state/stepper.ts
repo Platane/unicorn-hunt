@@ -1,4 +1,4 @@
-import { vec2, vec3 } from "gl-matrix";
+import { vec2, vec3 } from "../../utils/glMatrix";
 import { PlayerInput, WorldSnapshot } from "./types";
 import type { Map } from "./map";
 import { hashInt } from "../../utils/hash";
@@ -51,13 +51,13 @@ export const step = (
   for (const input of inputs) {
     const hunter = world.hunters.find((p) => p.id === input.playerId);
     if (hunter) {
-      vec2.copy(hunter.direction, DIRECTIONS[input.angle & 15]);
+      vec2.copy(hunter.d, DIRECTIONS[input.angle & 15]);
 
       // no jumping out of a stagger: mistiming a hurdle costs you the next one
       if (input.jump && !hunter.jumping && !hunter.staggered)
         hunter.jumping = {
           remainingTime: HUNTER_JUMP_DURATION,
-          direction: [...hunter.direction],
+          d: [...hunter.d],
         };
     }
   }
@@ -67,39 +67,39 @@ export const step = (
     if ((unicorn.id + world.generation) % 100 === 0) {
       let a = ((hashInt(unicorn.id + world.generation) % 16) / 16) * Math.PI * 2 - Math.PI;
 
-      if (unicorn.position[0] > 0 && unicorn.position[0] < 5 && a < 0) a = -a;
-      if (unicorn.position[0] < 0 && unicorn.position[0] > -5 && a > 0) a = -a;
+      if (unicorn.p[0] > 0 && unicorn.p[0] < 5 && a < 0) a = -a;
+      if (unicorn.p[0] < 0 && unicorn.p[0] > -5 && a > 0) a = -a;
 
-      unicorn.direction[0] = Math.sin(a);
-      unicorn.direction[1] = Math.cos(a);
+      unicorn.d[0] = Math.sin(a);
+      unicorn.d[1] = Math.cos(a);
     }
 
-    unicorn.position[0] += unicorn.direction[0] * WILD_UNICORN_SPEED * STEP_DURATION;
-    unicorn.position[1] += unicorn.direction[1] * WILD_UNICORN_SPEED * STEP_DURATION;
+    unicorn.p[0] += unicorn.d[0] * WILD_UNICORN_SPEED * STEP_DURATION;
+    unicorn.p[1] += unicorn.d[1] * WILD_UNICORN_SPEED * STEP_DURATION;
   }
 
   //
   // spawn unicorns ahead of the first player
   if (world.generation % UNICORN_SPAWN_INTERVAL === 0 && world.hunters.length) {
-    const firstY = Math.max(...world.hunters.map((h) => h.position[1]));
+    const firstY = Math.max(...world.hunters.map((h) => h.p[1]));
 
     while (
-      world.unicorns.filter((u) => u.position[1] > firstY && u.position[1] < firstY + UNICORN_ZONE)
+      world.unicorns.filter((u) => u.p[1] > firstY && u.p[1] < firstY + UNICORN_ZONE)
         .length <
       world.hunters.length * UNICORNS_PER_PLAYER
     )
       world.unicorns.push({
         id: world.generation + world.unicorns.length * 12313,
-        position: new Float32Array([
+        p: new Float32Array([
           0,
           firstY +
             lerp(
               UNICORN_SPAWN_AHEAD[0],
               UNICORN_SPAWN_AHEAD[1],
-              (hashInt(world.generation + world.unicorns.length) % 100) / 100,
+              (hashInt(world.generation + world.unicorns.length) % 10) / 10,
             ),
         ]),
-        direction: [0, 1],
+        d: [0, 1],
       });
   }
 
@@ -120,17 +120,17 @@ export const step = (
           : HUNTER_SPEED;
 
     // move
-    const direction = hunter.jumping?.direction ?? hunter.direction;
-    vec2.scaleAndAdd(hunter.position, hunter.position, direction, speed * STEP_DURATION);
+    const facing = hunter.jumping?.d ?? hunter.d;
+    vec2.scaleAndAdd(hunter.p, hunter.p, facing, speed * STEP_DURATION);
 
     // hunter leave a trail while riding
     if (hunter.riding) {
       const trail = world.rainbowTrails[hunter.riding.trailIndex];
-      if (vec2.sqrDist(hunter.position, trail[1]) > TRAIL_POINT_DISTANCE ** 2) {
-        trail.unshift(vec2.create());
+      if (vec2.sqrDist(hunter.p, trail[1]) > TRAIL_POINT_DISTANCE ** 2) {
+        trail.unshift(new Float32Array(2));
       }
-      trail[0][0] = hunter.position[0];
-      trail[0][1] = hunter.position[1];
+      trail[0][0] = hunter.p[0];
+      trail[0][1] = hunter.p[1];
     }
 
     //
@@ -138,7 +138,7 @@ export const step = (
     for (let i = world.unicorns.length; i--;) {
       if (
         !hunter.riding &&
-        vec2.squaredDistance(hunter.position, world.unicorns[i].position) <
+        vec2.sqrDist(hunter.p, world.unicorns[i].p) <
           (HUNTER_RADIUS + HUNTER_RADIUS) ** 2
       ) {
         hunter.riding = {
@@ -147,7 +147,7 @@ export const step = (
           trailIndex: world.rainbowTrails.length,
         };
 
-        world.rainbowTrails.push([[...hunter.position], [...hunter.position]]);
+        world.rainbowTrails.push([[...hunter.p], [...hunter.p]]);
         world.unicorns.splice(i, 1);
       }
     }
@@ -156,7 +156,7 @@ export const step = (
     // on Trail detection
     for (const trail of world.rainbowTrails) {
       for (const p of trail)
-        if (vec2.squaredDistance(hunter.position, p) < TRAIL_RADIUS ** 2) {
+        if (vec2.sqrDist(hunter.p, p) < TRAIL_RADIUS ** 2) {
           hunter.onTrail = 3;
         }
     }
@@ -168,16 +168,16 @@ export const step = (
       let b = map.obstacles.length;
       for (let k = 8; k--;) {
         const e = Math.floor((a + b) / 2);
-        if (map.obstacles[e]?.[1] < hunter.position[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
+        if (map.obstacles[e]?.[1] < hunter.p[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
         else b = e;
       }
 
       while (
         map.obstacles[a] &&
-        map.obstacles[a][1] <= hunter.position[1] + HUNTER_RADIUS + MAX_OBSTACLE_RADIUS
+        map.obstacles[a][1] <= hunter.p[1] + HUNTER_RADIUS + MAX_OBSTACLE_RADIUS
       ) {
         if (
-          vec2.squaredDistance(map.obstacles[a], hunter.position) <
+          vec2.sqrDist(map.obstacles[a], hunter.p) <
           (HUNTER_RADIUS / 2 + map.obstacles[a][2]) ** 2
         )
           hunter.staggered = HUNTER_STAGGER_DURATION;
@@ -190,7 +190,7 @@ export const step = (
   //
   // build collision island
   const islands: {
-    bodies: Set<{ position: vec2 }>;
+    bodies: Set<{ p: vec2 }>;
     circles: Set<vec3>;
   }[] = [];
   for (const body of [...world.hunters, ...world.unicorns]) {
@@ -202,7 +202,7 @@ export const step = (
       const e = Math.floor((a + b) / 2);
       if (
         map.bushes[e][1] <
-        body.position[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN
+        body.p[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN
       )
         a = e;
       else b = e;
@@ -211,10 +211,10 @@ export const step = (
     while (
       map.bushes[a] &&
       map.bushes[a][1] <=
-        body.position[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
+        body.p[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
     ) {
       if (
-        vec2.squaredDistance(map.bushes[a], body.position) <
+        vec2.sqrDist(map.bushes[a], body.p) <
         (HUNTER_RADIUS + map.bushes[a][2] + COLLISION_SAFETY_MARGIN) ** 2
       )
         circles.add(map.bushes[a]);
@@ -237,7 +237,7 @@ export const step = (
               .values()
               .some(
                 (p2) =>
-                  vec2.squaredDistance(p1.position, p2.position) <
+                  vec2.sqrDist(p1.p, p2.p) <
                   (HUNTER_RADIUS + HUNTER_RADIUS + COLLISION_SAFETY_MARGIN) ** 2,
               ),
           )
@@ -257,8 +257,8 @@ export const step = (
       pen.fill(0);
       for (let i = ps.length; i--;) {
         for (const [bx, by, br] of circles) {
-          const vx = bx - ps[i].position[0];
-          let vy = by - ps[i].position[1];
+          const vx = bx - ps[i].p[0];
+          let vy = by - ps[i].p[1];
           let l = Math.hypot(vx, vy);
 
           if (l === 0) {
@@ -276,8 +276,8 @@ export const step = (
         }
 
         for (let j = i; j--;) {
-          const vx = ps[j].position[0] - ps[i].position[0];
-          let vy = ps[j].position[1] - ps[i].position[1];
+          const vx = ps[j].p[0] - ps[i].p[0];
+          let vy = ps[j].p[1] - ps[i].p[1];
           let l = Math.hypot(vx, vy);
 
           if (l === 0) {
@@ -303,8 +303,8 @@ export const step = (
 
       for (let i = ps.length; i--;) {
         if (pen[i * 3 + 2]) {
-          ps[i].position[0] += pen[i * 3 + 0] / pen[i * 3 + 2];
-          ps[i].position[1] += pen[i * 3 + 1] / pen[i * 3 + 2];
+          ps[i].p[0] += pen[i * 3 + 0] / pen[i * 3 + 2];
+          ps[i].p[1] += pen[i * 3 + 1] / pen[i * 3 + 2];
         }
       }
     }

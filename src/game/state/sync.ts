@@ -1,6 +1,6 @@
 import { PlayerInput, WorldSnapshot } from "./types";
 import { STEP_DURATION, step as worldStep } from "./stepper";
-import { vec2 } from "gl-matrix";
+import { vec2 } from "../../utils/glMatrix";
 import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { createMap, Map } from "./map";
 
@@ -204,12 +204,12 @@ const deserializeSnapshot = (b: Uint8Array) => {
     reqDate: number;
   };
   for (const p of s.snapshot.hunters) {
-    p.position = vec2.clone(p.position);
-    p.direction = vec2.clone(p.direction);
+    p.p = vec2.clone(p.p);
+    p.d = vec2.clone(p.d);
   }
   for (const p of s.snapshot.unicorns) {
-    p.position = vec2.clone(p.position);
-    p.direction = vec2.clone(p.direction);
+    p.p = vec2.clone(p.p);
+    p.d = vec2.clone(p.d);
   }
   return s;
 };

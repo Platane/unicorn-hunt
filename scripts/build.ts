@@ -20,7 +20,16 @@ const removeWhiteSpace = (text: string) =>
     .replace(/\s+(\W)/g, (_, a) => a)
     .trim();
 
-const minifyHtml = (text: string) => removeWhiteSpace(text.replaceAll(/"(\S+)"/g, (_, a) => a));
+const minifyHtml = (text: string) =>
+  removeWhiteSpace(text.replaceAll(/"(\S+)"/g, (_, a) => a)).replace(/<\/?html[^>]*>/g, "");
+
+const minifyCss = (text: string) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*([{};:,>])\s*/g, "$1")
+    .replace(/;}/g, "}")
+    .trim();
 
 //
 // bundle
@@ -69,7 +78,17 @@ console.log("bun build ✅");
 {
   const shaders = js.match(/`#version 300[^`]*`/g) ?? [];
 
-  const names = new Set(["Camera", "projectionMatrix", "viewMatrix", "lightDirection", "time"]);
+  const names = new Set([
+    "Camera",
+    "projectionMatrix",
+    "viewMatrix",
+    "lightDirection",
+    "time",
+    "outColor",
+    "normal",
+    "a_objectMatrix",
+    "qrot",
+  ]);
   for (const shader of shaders)
     for (const [, name] of shader.matchAll(
       /\b(?:in|out|uniform)\s+(?:uint|uvec2|uvec3|uvec4|int|float|vec2|vec3|vec4|mat3|mat4|sampler2D)\s+([auv]_\w+)/g,
@@ -77,7 +96,7 @@ console.log("bun build ✅");
       names.add(name);
 
   for (const shader of shaders) {
-    const minified = shader
+    let minified = shader
       .slice(1, -1)
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\/\/.*/g, "")
@@ -88,7 +107,11 @@ console.log("bun build ✅");
       .join(" ")
       .replace(/\s*\n\s*/g, "\n")
       .replace(/[ \t]*([^\w\s#.])[ \t]*/g, "$1")
+      .replace(/(\d)\.0\b/g, "$1.")
       .trim();
+
+    // vertex shaders default to highp
+    if (minified.includes("gl_Position")) minified = minified.replace("precision highp float;", "");
 
     js = js.replace(shader, () => "`" + minified + "`");
   }
@@ -130,7 +153,7 @@ console.log("closure compiler ✅");
 {
   const html = minifyHtml(await Bun.file("index.html").text()).replace(
     /<script[^>]*>(<\/script>)?/,
-    `<style>${removeWhiteSpace(css)}</style><script>${js}</script>`,
+    () => `<style>${minifyCss(css)}</style><script>${js}</script>`,
   );
   await Bun.write(`${tmpDir}/index-closure.html`, html);
 }
@@ -147,9 +170,9 @@ console.log("roadroller ✅");
 // inline into html
 
 {
-  const html = removeWhiteSpace(await Bun.file("index.html").text()).replace(
+  const html = minifyHtml(await Bun.file("index.html").text()).replace(
     /<script[^>]*>(<\/script>)?/,
-    `<style>${removeWhiteSpace(css)}</style><script>${firstLine + secondLine}</script>`,
+    () => `<style>${minifyCss(css)}</style><script>${firstLine + secondLine}</script>`,
   );
   await Bun.write(`${outDir}/index.html`, html);
 }

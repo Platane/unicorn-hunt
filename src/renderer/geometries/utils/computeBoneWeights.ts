@@ -1,11 +1,11 @@
-import { vec3 } from "gl-matrix";
+import { vec3 } from "../../../utils/glMatrix";
 
 export const computeBoneWeights = (bonePositions: vec3[], positions: ArrayLike<number>) => {
   const nVertices = positions.length / 3;
   const boneIndexes = new Uint8Array(nVertices * 4);
   const boneWeights = new Float32Array(nVertices * 4);
 
-  const p = vec3.create();
+  const p = new Float32Array(3);
 
   const ws = new Float32Array(4);
   const is = new Uint8Array(4);

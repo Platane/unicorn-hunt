@@ -121,7 +121,6 @@ export const createLobby = (): Lobby => {
   //
   if (w) {
     w.init({
-      debug: true,
       p2p: {
         messageSize: 64 * 1024, // 64k , max allowed, needed as we send snapshot of the world
         maxIncomingMessages: 64,

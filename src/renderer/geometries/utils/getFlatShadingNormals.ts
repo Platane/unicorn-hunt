@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec3 } from "../../../utils/glMatrix";
 const ab: vec3 = [0, 0, 0];
 const ac: vec3 = [0, 0, 0];
 const a: vec3 = [0, 0, 0];
@@ -19,8 +19,8 @@ export const getFlatShadingNormals = (
     vec3.set(b, positions[bk + 0], positions[bk + 1], positions[bk + 2]);
     vec3.set(c, positions[ck + 0], positions[ck + 1], positions[ck + 2]);
 
-    vec3.subtract(ab, a, b);
-    vec3.subtract(ac, a, c);
+    vec3.sub(ab, a, b);
+    vec3.sub(ac, a, c);
 
     vec3.cross(n, ab, ac);
     vec3.normalize(n, n);

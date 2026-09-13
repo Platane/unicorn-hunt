@@ -21,13 +21,13 @@ createKeyboardController(
     lobby.type === "playing" ? worldRenderer.getHunterScreenPos(lobby.me.playerId) : undefined,
 );
 
-lobby.addBot();
-lobby.addBot();
-lobby.addBot();
-lobby.addBot();
-lobby.addBot();
-lobby.addBot();
-lobby.start();
+// lobby.addBot();
+// lobby.addBot();
+// lobby.addBot();
+// lobby.addBot();
+// lobby.addBot();
+// lobby.addBot();
+// lobby.start();
 
 lobby.onChange = () => {
   ui.update();
@@ -53,10 +53,10 @@ const loop = () => {
       if (!s0.hunters.some((h) => h.id === p.playerId))
         s0.hunters.push({
           id: p.playerId,
-          direction: new Float32Array([0, 1]),
-          position: new Float32Array([
+          d: new Float32Array([0, 1]),
+          p: new Float32Array([
             (hashString(p.playerId) % 400) / 100 - 2,
-            Math.max(0, ...s0.hunters.map((h) => h.position[1])),
+            Math.max(0, ...s0.hunters.map((h) => h.p[1])),
           ]),
         });
 
@@ -76,24 +76,6 @@ const loop = () => {
     u.innerText = "loading…";
     return;
   }
-
-  u.innerText =
-    `latency: ${game.hostLatency}` +
-    "\n" +
-    `generation: ${game.snapshots[0]?.generation ?? 0}` +
-    "\n" +
-    [...lobby.users, ...lobby.bots]
-      .map((user) => {
-        const p = game.snapshots[0]?.hunters.find((h) => h.id === user.playerId);
-        const status = [
-          p?.jumping ? "↑" : "  ",
-          p?.riding ? "🦄" : "  ",
-          p?.onTrail ? "🌈" : "  ",
-          p?.staggered ? "🚧" : "  ",
-        ].join(" - ");
-        return `- ${user.playerId === lobby.me.playerId ? "🤠" : "  "}  ${user.username.padEnd(12, " ")} ${status} ${p?.position}`;
-      })
-      .join("\n");
 
   worldRenderer.step(game, lobby.me.playerId);
 };

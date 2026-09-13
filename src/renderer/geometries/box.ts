@@ -1,4 +1,4 @@
-import { quat, vec3 } from "gl-matrix";
+import { quat, vec3 } from "../../utils/glMatrix";
 
 /**
  * a box, tessellated so the quads come out roughly square whatever the box

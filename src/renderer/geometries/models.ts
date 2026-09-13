@@ -1,4 +1,4 @@
-import { quat, vec3 } from "gl-matrix";
+import { quat, vec3 } from "../../utils/glMatrix";
 import modelBinUrl from "../../assets/models.bin" with { type: "file" };
 import { computeBoneWeights } from "./utils/computeBoneWeights";
 import { fillBox, getBoxVertexCount } from "./box";
@@ -147,7 +147,7 @@ export const getModelsGeometry = async () => {
 
   //
   // geometry
-  return models.map((m) => {
+  const geometries = models.map((m) => {
     let vertexCount = 0;
     for (const size of m.sizes) vertexCount += getBoxVertexCount(size, QUAD_SIZE);
 
@@ -164,9 +164,9 @@ export const getModelsGeometry = async () => {
     const { boneWeights, boneIndexes } = computeBoneWeights(
       m.bones.map((b) =>
         vec3.scaleAndAdd(
-          vec3.create(),
+          new Float32Array(3),
           b.restPosition,
-          vec3.transformQuat(vec3.create(), BONE_AXIS, b.restRotation),
+          vec3.transformQuat(new Float32Array(3), BONE_AXIS, b.restRotation),
           BONE_WEIGHT_OFFSET,
         ),
       ),
@@ -186,12 +186,19 @@ export const getModelsGeometry = async () => {
         a: number,
         b: number,
         alpha: number,
-        position: vec3,
+        pos: vec3,
         rotation: quat,
-      ) => applyPose(out, m.bones, a, b, alpha, position, rotation),
+      ) => applyPose(out, m.bones, a, b, alpha, pos, rotation),
     };
   });
+
+  return {
+    models: geometries,
+    palette: new Uint8Array(view.buffer, view.byteLength - PALETTE_SIZE * PALETTE_SIZE * 4),
+  };
 };
+
+export const PALETTE_SIZE = 16;
 
 /**
  * blends two poses and writes one rigid transform per bone into out, as the
@@ -210,7 +217,7 @@ const applyPose = (
   a: number,
   b: number,
   alpha: number,
-  position: vec3,
+  pos: vec3,
   rotation: quat,
 ) => {
   for (let i = 0; i < bones.length; i++) {
@@ -222,7 +229,7 @@ const applyPose = (
     if (!parent) {
       quat.multiply(bone.globalRotation, rotation, q);
       vec3.transformQuat(bone.globalPosition, bone.localPosition, rotation);
-      vec3.add(bone.globalPosition, bone.globalPosition, position);
+      vec3.add(bone.globalPosition, bone.globalPosition, pos);
     } else {
       quat.multiply(bone.globalRotation, parent.globalRotation, q);
       vec3.transformQuat(bone.globalPosition, bone.localPosition, parent.globalRotation);
@@ -250,6 +257,5 @@ const applyPose = (
 const p = new Float32Array(3) as vec3;
 const q = new Float32Array(4) as quat;
 
-export const UNICORN_MODELID = 2;
+export const UNICORN_MODELID = 1;
 export const HUNTER_MODELID = 0;
-export const HAT_MODELID = 1;

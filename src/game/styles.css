@@ -6,7 +6,6 @@ body.g .bar {
   bottom: 30%;
   width: 2px;
   background: #333;
-  z-index: 2;
   pointer-events: none;
 }
 

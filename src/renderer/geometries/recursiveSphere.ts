@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec3 } from "../../utils/glMatrix";
 /**
  * return recursive sphere with a radius of 1 centered on origin
  */
@@ -42,9 +42,9 @@ const createPyramidKernel = (n: number) => {
  * returns an array of oriented faces
  */
 const tesselate = (face: [vec3, vec3, vec3]) => {
-  const m01 = vec3.lerp(vec3.create(), face[0], face[1], 0.5);
-  const m12 = vec3.lerp(vec3.create(), face[1], face[2], 0.5);
-  const m20 = vec3.lerp(vec3.create(), face[2], face[0], 0.5);
+  const m01 = vec3.lerp(new Float32Array(3), face[0], face[1], 0.5);
+  const m12 = vec3.lerp(new Float32Array(3), face[1], face[2], 0.5);
+  const m20 = vec3.lerp(new Float32Array(3), face[2], face[0], 0.5);
 
   vec3.normalize(m01, m01);
   vec3.normalize(m12, m12);

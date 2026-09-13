@@ -1,16 +1,16 @@
-import { quat, vec3 } from "gl-matrix";
+import { quat, vec3 } from "../utils/glMatrix";
 import { BONE_STRIDE, createRenderer, ENTITY_STRIDE, MAX_BONES, MAX_ENTITIES } from "../renderer";
 import { HUNTER_JUMP_DURATION } from "../game/state/stepper";
 import type { WorldSnapshot } from "../game/state/types";
 import type { Map } from "../game/state/map";
 import { setTransformAt, setVec4At } from "../utils/transform";
 import { createGroundGeometry, updateGroundGeometry } from "../renderer/geometries/ground";
-import {
-  SPRITE_BOX_COWBOY,
-  SPRITE_BOX_NEMESIS,
-  SPRITE_BOX_STAR,
-  SPRITE_BOX_UNICORN,
-} from "../renderer/geometries/sprite";
+// import {
+//   SPRITE_BOX_COWBOY,
+//   SPRITE_BOX_NEMESIS,
+//   SPRITE_BOX_STAR,
+//   SPRITE_BOX_UNICORN,
+// } from "../renderer/geometries/sprite";
 import { UNICORN_MODELID } from "../renderer/geometries/models";
 import {
   BUSHES_VARIANTS,
@@ -73,15 +73,15 @@ export const applyWorld = (
   renderer: ReturnType<typeof createRenderer>,
   playerId: string,
 ) => {
-  const sprites = renderer.spritesEntities;
-  sprites.count = 0;
+  // const sprites = renderer.spritesEntities;
+  // sprites.count = 0;
 
-  const setSprite = (position: vec3, spriteBox: number[], size = 1) => {
-    const o = sprites.count * ENTITY_STRIDE;
-    setTransformAt(sprites.data, o, position, q, size);
-    setVec4At(sprites.data, o + 16, spriteBox);
-    sprites.count++;
-  };
+  // const setSprite = (position: vec3, spriteBox: number[], size = 1) => {
+  //   const o = sprites.count * ENTITY_STRIDE;
+  //   setTransformAt(sprites.data, o, position, q, size);
+  //   setVec4At(sprites.data, o + 16, spriteBox);
+  //   sprites.count++;
+  // };
 
   // snapshot.rainbowTrails.forEach((trail) => {
   //   trail.forEach((p) => {
@@ -109,5 +109,5 @@ export const applyWorld = (
   //   setSprite(v, SPRITE_BOX_UNICORN);
   // });
 
-  sprites.version++;
+  // sprites.version++;
 };

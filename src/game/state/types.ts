@@ -1,4 +1,4 @@
-import { vec2 } from "gl-matrix";
+import { vec2 } from "../../utils/glMatrix";
 
 export type WorldSnapshot = {
   seed: number; // determine the object placement
@@ -9,17 +9,17 @@ export type WorldSnapshot = {
 };
 export type Hunter = {
   id: string;
-  direction: vec2;
-  position: vec2;
+  d: vec2;
+  p: vec2;
   riding?: { remainingTime: number; trailIndex: number; unicornId: number };
-  jumping?: { remainingTime: number; direction: vec2 };
+  jumping?: { remainingTime: number; d: vec2 };
   staggered?: number;
   onTrail?: number;
 };
 export type Unicorn = {
   id: number;
-  position: vec2;
-  direction: vec2;
+  p: vec2;
+  d: vec2;
 };
 export type PlayerInput = {
   angle: number; // quantified to 16 positions

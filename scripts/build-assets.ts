@@ -36,7 +36,7 @@ import { quat } from "gl-matrix";
  * the stored components are bounded by 1/sqrt(2) rather than 1, so ~5x the precision.
  */
 
-const MODELS = ["hunter", "hat", "unicorn"];
+const MODELS = ["hunter", "unicorn"];
 
 // bones the blender exporter or the rig leaves behind. they are leaves at the end
 // of the joint list, so dropping them shifts no index. neutral_bone matters: it sits
@@ -231,6 +231,49 @@ for (const model of models) {
       const sample = Math.min((p - 1) * POSE_STRIDE, track.length / 4 - 1);
       quantRotation(track.subarray(sample * 4, sample * 4 + 4));
     }
+}
+
+//
+// color palette, 16x16 rgba at the end of the file
+// drawn by the game code into a fake canvas
+{
+  const pixels = new Uint8Array(16 * 16 * 4);
+
+  const parseColor = (s: string) => {
+    if (s.startsWith("#")) {
+      const hex = s.length === 4 ? [...s.slice(1)].map((c) => c + c).join("") : s.slice(1);
+      return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(255);
+    }
+    const [h, sat, l] = s.match(/-?[\d.]+/g)!.map(Number);
+    const a = (sat / 100) * Math.min(l / 100, 1 - l / 100);
+    const f = (n: number) => {
+      const k = (n + (((h % 360) + 360) % 360) / 30) % 12;
+      return Math.round((l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+    };
+    return [f(0), f(8), f(4), 255];
+  };
+
+  (globalThis as any).document = {
+    createElement: () => ({
+      getContext: () => {
+        let color = [0, 0, 0, 255];
+        return {
+          set fillStyle(s: string) {
+            color = parseColor(s);
+          },
+          fillRect: (x: number, y: number, w: number, h: number) => {
+            for (let j = y; j < y + h; j++)
+              for (let i = x; i < x + w; i++) pixels.set(color, (j * 16 + i) * 4);
+          },
+        };
+      },
+    }),
+  };
+
+  const { createColorPalette } = await import("../src/renderer/geometries/colorPatette");
+  createColorPalette();
+
+  for (const b of pixels) bytes.push(b);
 }
 
 await Bun.file(__dirname + "/../src/assets/models.bin").write(new Uint8Array(bytes));

@@ -35,7 +35,7 @@ export const createGameUi = () => {
 
     for (let k = 0; k < n; k++) {
       const i = (me + k) % n;
-      const y = Math.min(1, Math.max(0, hunters[i].position[1] / RACE_LENGTH)) * height;
+      const y = Math.min(1, Math.max(0, hunters[i].p[1] / RACE_LENGTH)) * height;
 
       let ax = 0;
       let bx = n * PIN;
