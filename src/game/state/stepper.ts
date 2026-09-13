@@ -16,7 +16,7 @@ export const MOUNTED_UNICORN_SPEED = 3;
 export const HUNTER_ON_TRAIL_SPEED = 3;
 export const HUNTER_JUMP_DURATION = 16;
 
-export const HUNTER_STAGGERED_SPEED = 0.35;
+export const HUNTER_STAGGERED_SPEED = 0.8;
 export const HUNTER_STAGGER_DURATION = 3;
 export const TRAIL_RADIUS = 0.8;
 
@@ -26,10 +26,10 @@ export const MAX_OBSTACLE_RADIUS = 1;
 
 const TRAIL_POINT_DISTANCE = 1;
 
-const UNICORN_SPAWN_INTERVAL = 10;
-const UNICORN_ZONE = 45;
-const UNICORN_SPAWN_AHEAD = [20, 45];
-const UNICORNS_PER_PLAYER = 0.5;
+const UNICORN_SPAWN_INTERVAL = 5;
+const UNICORN_SPAWN_CHECK_ZONE = [-4, 30];
+const UNICORN_SPAWN_ZONE = [18, 30];
+const UNICORNS_PER_PLAYER = 0.8;
 
 const COLLISION_SAFETY_MARGIN = 0.2;
 
@@ -84,7 +84,11 @@ export const step = (
     const firstY = Math.max(...world.hunters.map((h) => h.p[1]));
 
     while (
-      world.unicorns.filter((u) => u.p[1] > firstY && u.p[1] < firstY + UNICORN_ZONE).length <
+      world.unicorns.filter(
+        (u) =>
+          u.p[1] > firstY - UNICORN_SPAWN_CHECK_ZONE[0] &&
+          u.p[1] < firstY + UNICORN_SPAWN_CHECK_ZONE[1],
+      ).length <
       world.hunters.length * UNICORNS_PER_PLAYER
     )
       world.unicorns.push({
@@ -93,8 +97,8 @@ export const step = (
           0,
           firstY +
             lerp(
-              UNICORN_SPAWN_AHEAD[0],
-              UNICORN_SPAWN_AHEAD[1],
+              UNICORN_SPAWN_ZONE[0],
+              UNICORN_SPAWN_ZONE[1],
               (hashInt(world.generation + world.unicorns.length) % 10) / 10,
             ),
         ]),
