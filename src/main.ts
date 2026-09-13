@@ -5,11 +5,13 @@ import { createWorldRenderer } from "./worldRenderer/createWorldRenderer";
 import { createKeyboardController } from "./game/state/controller-keyboard";
 import { createBot } from "./game/state/bot";
 import { hashString } from "./utils/hash";
+import { createGameUi } from "./game/ui";
 
 const lobby = createLobby();
 const worldRenderer = createWorldRenderer(c as HTMLCanvasElement);
 const ui = createLobbyUi(lobby);
 const bots = new Map<string, ReturnType<typeof createBot>>();
+const gameUi = createGameUi();
 
 createKeyboardController(
   (input) => {
@@ -19,23 +21,30 @@ createKeyboardController(
     lobby.type === "playing" ? worldRenderer.getHunterScreenPos(lobby.me.playerId) : undefined,
 );
 
+lobby.addBot();
+lobby.addBot();
+lobby.addBot();
+lobby.addBot();
+lobby.addBot();
+lobby.addBot();
 lobby.start();
 
 lobby.onChange = () => {
   ui.update();
-  console.log("[[lobby]]", lobby);
 };
 ui.update();
 
 const loop = () => {
   requestAnimationFrame(loop);
 
-  if (lobby.type !== "playing") return;
+  if (lobby.type !== "playing") return gameUi.update(undefined, lobby.me.playerId);
 
   const game = lobby.game;
   const s0 = game.snapshots[0];
 
   game.step();
+
+  gameUi.update(game.snapshots[0], lobby.me.playerId);
 
   // host actions
   if (s0 && lobby.hostId === lobby.me.playerId) {

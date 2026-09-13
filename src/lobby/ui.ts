@@ -1,6 +1,7 @@
 import "./styles.css";
 import type { Lobby, Player } from "./state";
 import { MAX_PLAYERS } from "./state";
+import { getHunterColor } from "../renderer/geometries/colorPatette";
 
 export const createLobbyUi = (lobby: Lobby) => {
   let roomId = "";
@@ -20,11 +21,12 @@ export const createLobbyUi = (lobby: Lobby) => {
     roomId = (e.target as HTMLInputElement).value;
   };
 
-  const seat = (p: Player, host = false) =>
+  // i is the player index, users then bots, same order as the hunters in game
+  const seat = (p: Player, i: number, host = false) =>
     `<li>${
       p.avatarUrl
-        ? `<img src="${p.avatarUrl}" width=48>`
-        : `<i style="width:48px;height:48px;background:#fff"></i>`
+        ? `<img src="${p.avatarUrl}" width=48 style="border:3px solid ${getHunterColor(i)}">`
+        : `<i style="width:48px;height:48px;background:#fff;border:3px solid ${getHunterColor(i)}"></i>`
     }${p.username}${host ? " 👑" : ""}`;
 
   const update = () => {
@@ -56,7 +58,7 @@ export const createLobbyUi = (lobby: Lobby) => {
 
     u.innerHTML =
       (lobby.joinUrl ? `<a href=${lobby.joinUrl} target=_blank>${lobby.joinUrl}</a>` : "") +
-      `<ul>${lobby.users.map((p) => seat(p, p.playerId == lobby.hostId)).join("")}${lobby.bots.map((p) => seat(p)).join("")}</ul>` +
+      `<ul>${lobby.users.map((p, i) => seat(p, i, p.playerId == lobby.hostId)).join("")}${lobby.bots.map((p, i) => seat(p, lobby.users.length + i)).join("")}</ul>` +
       (host
         ? (lobby.bots.length + lobby.users.length < MAX_PLAYERS
             ? `<button data-a=b>add bot</button>`

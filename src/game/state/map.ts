@@ -3,10 +3,14 @@ import {
   createGridBushes,
   createGridObstacles,
   createGridDebugCanvas,
+  CELL,
 } from "./gridMap";
 
 // how far up the track goes, in cells. one cell is CELL world units
 const MAP_ROWS = 200;
+
+// in world units, the top of the race bar
+export const RACE_LENGTH = MAP_ROWS * CELL;
 
 export const createMap = (seed: number) => {
   const grid = createGridMap(seed, MAP_ROWS);

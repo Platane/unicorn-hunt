@@ -2,7 +2,7 @@ import type { WavedashSDK } from "@wvdsh/sdk-js";
 import { createGameSync, type NetworkMesh } from "../game/state/sync";
 import { createInitialState } from "../game/state/stepper";
 
-export const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 6;
 
 // lobby metadata keys. the listing carries no name and no users of its own, so
 // whatever the browse screen shows has to be put here by the host

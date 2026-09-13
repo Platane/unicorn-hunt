@@ -19,6 +19,7 @@ import {
 } from "../renderer/geometries/rainbowRibbon";
 import { HUNTER_JUMP_DURATION, TRAIL_RADIUS } from "../game/state/stepper";
 import { HUNTERS_VARIANTS, UNICORN_VARIANTS } from "../renderer/geometries/colorPatette";
+import { hashString } from "../utils/hash";
 
 const INSTANTIATED_MODEL_BUSH = 0;
 
@@ -215,7 +216,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
         );
       });
 
-      renderedWorldSnapshot.hunters.forEach((h) => {
+      renderedWorldSnapshot.hunters.forEach((h, i) => {
         const q = new Float32Array(4) as quat;
         quat.fromEuler(q, 0, 0, (Math.atan2(h.direction[0], -h.direction[1]) / Math.PI) * 180);
 
@@ -226,7 +227,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
         const e = getNextEntity();
 
         e.modelId = HUNTER_MODELID;
-        e.colorPalette = HUNTERS_VARIANTS[0];
+        e.colorPalette = HUNTERS_VARIANTS[i % HUNTERS_VARIANTS.length];
 
         // const hh = getNextEntity();
         // hh.modelId = HAT_MODELID;
