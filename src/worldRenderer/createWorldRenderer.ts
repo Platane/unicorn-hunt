@@ -1,10 +1,6 @@
 import { mat4, vec3, quat } from "../utils/glMatrix";
 import { BONE_STRIDE, createRenderer, MAX_BONES, uploadMesh, type Mesh } from "../renderer";
-import {
-  getModelsGeometry,
-  HUNTER_MODELID,
-  UNICORN_MODELID,
-} from "../renderer/geometries/models";
+import { getModelsGeometry, HUNTER_MODELID, UNICORN_MODELID } from "../renderer/geometries/models";
 import { createRecursiveSphere } from "../renderer/geometries/recursiveSphere";
 import { createGroundGeometry } from "../renderer/geometries/ground";
 import { stepSpring3 } from "../utils/spring";
@@ -172,12 +168,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
       stepSpring3(camera.p, camera.velocity, v, { tension: 120, friction: 12 }, dt / 1000);
 
-      mat4.lookAt(
-        renderer.viewMatrix,
-        camera.p,
-        [player.p[0], player.p[1] + 2, 0],
-        [0, 1, 0],
-      );
+      mat4.lookAt(renderer.viewMatrix, camera.p, [player.p[0], player.p[1] + 2, 0], [0, 1, 0]);
     }
 
     applyWorld(renderedWorldSnapshot, renderer, playerId);

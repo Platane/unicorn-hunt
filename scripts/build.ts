@@ -126,7 +126,9 @@ console.log("bun build ✅");
     map.set(name, short);
   }
 
-  js = js.replace(new RegExp(`\\b(${[...map.keys()].join("|")})\\b`, "g"), (name) => map.get(name)!);
+  js = js.replace(new RegExp(`\\b(${[...map.keys()].join("|")})\\b`, "g"), (name) =>
+    map.get(name)!,
+  );
 }
 
 console.log("glsl ✅");

@@ -48,7 +48,8 @@ export const createBushes = (grid: number[][], seed: number) => {
 
       if (cell === BLOCKING)
         for (let k = 0; k < BLOCKING_LINE; k++) {
-          const x = c - BLOCKING_OVERFLOW + ((k + 0.5) / BLOCKING_LINE) * (1 + 2 * BLOCKING_OVERFLOW);
+          const x =
+            c - BLOCKING_OVERFLOW + ((k + 0.5) / BLOCKING_LINE) * (1 + 2 * BLOCKING_OVERFLOW);
           const y = r + 0.5 + (random(s++) * 2 - 1) * BLOCKING_Y_JITTER;
           bushes.push(toWorld(grid, x, y, BLOCKING_RADIUS));
         }

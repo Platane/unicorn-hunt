@@ -233,18 +233,33 @@ export const quat = {
 };
 
 const mat4Identity = (out: mat4) => {
-  for (let i = 16; i--; ) out[i] = i % 5 ? 0 : 1;
+  for (let i = 16; i--;) out[i] = i % 5 ? 0 : 1;
   return out;
 };
 
 export const mat4 = {
   multiply: (out: mat4, a: mat4, b: mat4) => {
-    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
-    const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-    const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
-    const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+    const a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+    const a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+    const a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+    const a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
     for (let i = 0; i < 16; i += 4) {
-      const b0 = b[i], b1 = b[i + 1], b2 = b[i + 2], b3 = b[i + 3];
+      const b0 = b[i],
+        b1 = b[i + 1],
+        b2 = b[i + 2],
+        b3 = b[i + 3];
       out[i] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
       out[i + 1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
       out[i + 2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;

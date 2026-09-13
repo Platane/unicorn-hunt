@@ -75,39 +75,32 @@ export const applyWorld = (
 ) => {
   // const sprites = renderer.spritesEntities;
   // sprites.count = 0;
-
   // const setSprite = (position: vec3, spriteBox: number[], size = 1) => {
   //   const o = sprites.count * ENTITY_STRIDE;
   //   setTransformAt(sprites.data, o, position, q, size);
   //   setVec4At(sprites.data, o + 16, spriteBox);
   //   sprites.count++;
   // };
-
   // snapshot.rainbowTrails.forEach((trail) => {
   //   trail.forEach((p) => {
   //     vec3.set(v, p[0], p[1], 0.002);
   //     setSprite(v, SPRITE_BOX_STAR, 0.5);
   //   });
   // });
-
   // snapshot.hunters.forEach((p) => {
   //   const jumpHeight = p.jumping
   //     ? 1 - (2 * Math.abs(0.5 - p.jumping.remainingTime / HUNTER_JUMP_DURATION)) ** 2
   //     : 0;
-
   //   vec3.set(v, p.position[0], p.position[1], 0.01 + jumpHeight * 2);
   //   setSprite(v, p.id === playerId ? SPRITE_BOX_COWBOY : SPRITE_BOX_NEMESIS);
-
   //   if (p.riding) {
   //     vec3.set(v, p.position[0], p.position[1] - 0.2, 0.005 + jumpHeight * 2);
   //     setSprite(v, SPRITE_BOX_UNICORN);
   //   }
   // });
-
   // snapshot.unicorns.forEach((u) => {
   //   vec3.set(v, u.position[0], u.position[1], 0.01);
   //   setSprite(v, SPRITE_BOX_UNICORN);
   // });
-
   // sprites.version++;
 };

@@ -4,7 +4,6 @@ import { MAX_PLAYERS } from "./state";
 import { getHunterColor } from "../renderer/geometries/colorPatette";
 
 export const createLobbyUi = (lobby: Lobby) => {
-
   document.body.onclick = (e) => {
     const t = e.target as HTMLElement;
     const a = t.dataset.a;
@@ -43,7 +42,8 @@ export const createLobbyUi = (lobby: Lobby) => {
                 (l) =>
                   `<li>${l.name ?? l.lobbyId}<button data-a=jj data-id=${l.lobbyId}>join</button>`,
               )
-              .join("")}</ul>`          : "");
+              .join("")}</ul>`
+          : "");
       return;
     }
 
