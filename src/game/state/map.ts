@@ -1,29 +1,18 @@
-import {
-  createGridMap,
-  createGridBushes,
-  createGridObstacles,
-  createGridDebugCanvas,
-  CELL,
-} from "./gridMap";
+import { createGridMap } from "./gridMap";
+import { createBushes } from "./bushes";
+import { createObstacles } from "./obstacles";
 
-// how far up the track goes, in cells. one cell is CELL world units
-const MAP_ROWS = 200;
-
-// in world units, the top of the race bar
-export const RACE_LENGTH = MAP_ROWS * CELL;
+export const RACE_LENGTH = 200;
 
 export const createMap = (seed: number) => {
-  const grid = createGridMap(seed, MAP_ROWS);
+  const grid = createGridMap(seed);
 
   return {
     seed,
     grid,
-    bushes: createGridBushes(grid),
-    obstacles: createGridObstacles(grid),
+    bushes: createBushes(grid, seed).sort((a, b) => a[1] - b[1]),
+    obstacles: createObstacles(grid, seed).sort((a, b) => a[1] - b[1]),
   };
 };
 
 export type Map = ReturnType<typeof createMap>;
-
-export const createDebugMap = (map: Map) =>
-  createGridDebugCanvas(map.grid, 9, 80, undefined, undefined, map.bushes);

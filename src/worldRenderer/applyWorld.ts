@@ -64,7 +64,7 @@ export const applyGround = (
   range: [number, number],
   geometry: ReturnType<typeof createGroundGeometry>,
 ) => {
-  updateGroundGeometry(geometry, map, range);
+  updateGroundGeometry(geometry, map.seed, range);
   geometry.version++;
 };
 

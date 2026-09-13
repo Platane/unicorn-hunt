@@ -137,7 +137,8 @@ export const step = (
       let b = map.obstacles.length;
       for (let k = 8; k--;) {
         const e = Math.floor((a + b) / 2);
-        if (map.obstacles[e][1] < hunter.position[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
+        // the list can be empty
+        if (map.obstacles[e]?.[1] < hunter.position[1] - HUNTER_RADIUS - MAX_OBSTACLE_RADIUS) a = e;
         else b = e;
       }
 

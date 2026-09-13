@@ -1,5 +1,4 @@
 import { hashInt } from "../../utils/hash";
-import type { Map } from "../../game/state/map";
 import { getFlatShadingNormals } from "./utils/getFlatShadingNormals";
 
 export const createGroundGeometry = () => {
@@ -12,7 +11,7 @@ export const createGroundGeometry = () => {
 
 export const updateGroundGeometry = (
   out: ReturnType<typeof createGroundGeometry>,
-  map: Map,
+  seed: number,
   range: [number, number],
 ) => {
   // triangle index
@@ -38,7 +37,7 @@ export const updateGroundGeometry = (
   const W = 20;
   for (let x = -W; x <= W; x++) {
     for (let y = Math.floor(range[0]); y <= Math.floor(range[1]); y++) {
-      const u = hashInt(map.seed + x * 738 + y * 1932);
+      const u = hashInt(seed + x * 738 + y * 1932);
 
       const o0 = (y & 1) * 0.5;
       const o1 = 0.5 - o0;

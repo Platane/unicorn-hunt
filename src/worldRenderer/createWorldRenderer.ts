@@ -110,7 +110,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
       const p = s0.hunters.find((h) => h.id === playerId);
       if (p && state.map && Math.abs(p.position[1] - renderedGroundOrigin) > 16) {
         renderedGroundOrigin = Math.round(p.position[1]);
-        const range: [number, number] = [renderedGroundOrigin - 32, renderedGroundOrigin + 32];
+        const range: [number, number] = [renderedGroundOrigin - 32, renderedGroundOrigin + 64];
         applyGround(state.map, range, groundGeometry);
         uploadMesh(
           renderer.gl,

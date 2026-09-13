@@ -27,7 +27,7 @@ lobby.addBot();
 lobby.addBot();
 lobby.addBot();
 lobby.addBot();
-// lobby.start();
+lobby.start();
 
 lobby.onChange = () => {
   ui.update();
