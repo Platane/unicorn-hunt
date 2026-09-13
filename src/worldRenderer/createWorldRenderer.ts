@@ -22,7 +22,10 @@ import { HUNTERS_VARIANTS, UNICORN_VARIANTS } from "../renderer/geometries/color
 
 const INSTANTIATED_MODEL_BUSH = 0;
 
-const CAMERA_ALTITUDE = 10;
+const CAMERA_FOVY = Math.PI * 0.25;
+const VISIBLE_WIDTH = 16;
+const VISIBLE_MIN_HEIGHT = 10;
+const VISIBLE_MAX_HEIGHT = 28;
 
 const createSphereGeometry = (tessellationStep: number) => {
   const positions = new Float32Array(createRecursiveSphere({ tessellationStep }));
@@ -69,17 +72,17 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
   let renderedTrailOffset = 0;
   let renderedGroundOrigin = -Infinity;
   let renderedWorldSnapshot: WorldSnapshot | undefined;
-  let lastFrameDate = 0;
+  let lastFrameDate: number;
 
   const camera = {
     position: [0, -2, 10] as unknown as vec3,
     velocity: new Float32Array(3) as vec3,
-    fov: Math.PI * 0.25,
   };
 
   // hunter position in screen space, serves as the touch stick origin
-  const getHunterScreenPos = (snapshot: WorldSnapshot | undefined, playerId: string) => {
-    const p = snapshot?.hunters.find((h) => h.id === playerId);
+  // reads the rendered snapshot, so the origin sits on the hunter as drawn
+  const getHunterScreenPos = (playerId: string) => {
+    const p = renderedWorldSnapshot?.hunters.find((h) => h.id === playerId);
     if (!p || !renderer) return;
 
     const viewProjMatrix = mat4.create();
@@ -132,7 +135,7 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     );
 
     const now = Date.now();
-    const dt = lastFrameDate ? now - lastFrameDate : Infinity;
+    const dt = Math.max(60, now - (lastFrameDate ?? now));
     lastFrameDate = now;
 
     // how fast the rendered world catches up with the interpolated target
@@ -147,18 +150,27 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     //
     // camera
     {
-      const fovxTarget = player.riding && player.onTrail ? Math.PI * 0.2 : Math.PI * 0.25;
-      camera.fov = camera.fov * 0.9 + fovxTarget * 0.1;
+      let w = canvas.width;
+      let h = canvas.height;
 
-      const aspect = canvas.width / canvas.height;
-      const fovy = 2 * Math.atan(Math.tan(camera.fov / 2) / aspect);
-      mat4.perspective(renderer.projectionMatrix, fovy, aspect, 2, 80);
+      // letterbox: keep the visible height within [min, max] at the fixed width
+      if (w / h > VISIBLE_WIDTH / VISIBLE_MIN_HEIGHT) w = (h * VISIBLE_WIDTH) / VISIBLE_MIN_HEIGHT;
+      if (w / h < VISIBLE_WIDTH / VISIBLE_MAX_HEIGHT) h = (w * VISIBLE_MAX_HEIGHT) / VISIBLE_WIDTH;
+      renderer.gl.viewport((canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
 
-      vec3.set(v, player.position[0], player.position[1] - CAMERA_ALTITUDE * 0.6, CAMERA_ALTITUDE);
+      const aspect = w / h;
+      mat4.perspective(renderer.projectionMatrix, CAMERA_FOVY, aspect, 2, 80);
 
-      stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 }, dt);
+      // altitude that fits VISIBLE_WIDTH, 1.17 ≈ distance / altitude for the 0.6 offset
+      const zoom = player.riding && player.onTrail ? 0.8 : 1;
+      const altitude = (zoom * VISIBLE_WIDTH) / aspect / (2 * Math.tan(CAMERA_FOVY / 2) * 1.17);
 
-      vec3.copy(camera.position, v);
+      vec3.set(v, player.position[0], player.position[1] - altitude * 0.6, altitude);
+
+      // first frame snaps, then the spring follows; dt is ms, the spring wants seconds,
+      // clamped so a stalled tab does not blow it up
+
+      stepSpring3(camera.position, camera.velocity, v, { tension: 120, friction: 12 }, dt / 1000);
 
       mat4.lookAt(
         renderer.viewMatrix,

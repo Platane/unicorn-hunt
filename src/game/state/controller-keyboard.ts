@@ -19,7 +19,7 @@ export const createKeyboardController = (
   let angle = Math.round((Math.atan2(keyboardY, keyboardX) / (Math.PI * 2)) * 16);
 
   let touch:
-    | { x: number; y: number; startX: number; startY: number; startDate: number; onHunter: boolean }
+    | { x: number; y: number; startX: number; startY: number; startDate: number }
     | undefined;
 
   const loop = () => {
@@ -120,7 +120,6 @@ export const createKeyboardController = (
       startX: t.clientX,
       startY: t.clientY,
       startDate: Date.now(),
-      onHunter: dx * dx + dy * dy < HUNTER_TAP_RADIUS * HUNTER_TAP_RADIUS,
     };
   };
 
@@ -134,10 +133,10 @@ export const createKeyboardController = (
   };
 
   document.ontouchend = (e) => {
-    const { startX, startY, startDate, onHunter } = touch ?? {};
+    const { startX, startY, startDate } = touch ?? {};
     touch = undefined;
 
-    if (!onHunter || Date.now() - startDate! > TAP_MAX_DURATION) return;
+    if (Date.now() - startDate! > TAP_MAX_DURATION) return;
 
     const t = e.changedTouches[0];
     const dx = t.clientX - startX!;

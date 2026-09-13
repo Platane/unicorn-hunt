@@ -15,6 +15,7 @@ body.l #u {
 body.l ul {
   list-style: none;
   padding: 0;
+  gap: 0.5rem;
 }
 
 body.l li {

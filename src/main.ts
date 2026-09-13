@@ -16,14 +16,15 @@ createKeyboardController(
     if (lobby.type === "playing") lobby.game.registerInput(input, lobby.me.playerId);
   },
   () =>
-    lobby.type === "playing"
-      ? worldRenderer.getHunterScreenPos(lobby.game.snapshots[0], lobby.me.playerId)
-      : undefined,
+    lobby.type === "playing" ? worldRenderer.getHunterScreenPos(lobby.me.playerId) : undefined,
 );
 
 lobby.start();
 
-lobby.onChange = ui.update;
+lobby.onChange = () => {
+  ui.update();
+  console.log("[[lobby]]", lobby);
+};
 ui.update();
 
 const loop = () => {
@@ -59,6 +60,12 @@ const loop = () => {
         );
 
     if (game.map) for (const stepBot of bots.values()) stepBot(game.map, s0);
+  }
+
+  // no world until the host answers the snapshot request
+  if (!game.snapshots[0]) {
+    u.innerText = "loading…";
+    return;
   }
 
   u.innerText =

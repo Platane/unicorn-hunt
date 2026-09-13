@@ -21,7 +21,11 @@ export const createLobbyUi = (lobby: Lobby) => {
   };
 
   const seat = (p: Player, host = false) =>
-    `<li><img src="${p.avatarUrl ?? ""}" width=48>${p.username}${host ? " 👑" : ""}`;
+    `<li>${
+      p.avatarUrl
+        ? `<img src="${p.avatarUrl}" width=48>`
+        : `<i style="width:48px;height:48px;background:#fff"></i>`
+    }${p.username}${host ? " 👑" : ""}`;
 
   const update = () => {
     // the game draws its own overlay, so get out of the way
