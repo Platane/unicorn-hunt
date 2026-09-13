@@ -84,8 +84,7 @@ export const step = (
     const firstY = Math.max(...world.hunters.map((h) => h.p[1]));
 
     while (
-      world.unicorns.filter((u) => u.p[1] > firstY && u.p[1] < firstY + UNICORN_ZONE)
-        .length <
+      world.unicorns.filter((u) => u.p[1] > firstY && u.p[1] < firstY + UNICORN_ZONE).length <
       world.hunters.length * UNICORNS_PER_PLAYER
     )
       world.unicorns.push({
@@ -138,8 +137,7 @@ export const step = (
     for (let i = world.unicorns.length; i--;) {
       if (
         !hunter.riding &&
-        vec2.sqrDist(hunter.p, world.unicorns[i].p) <
-          (HUNTER_RADIUS + HUNTER_RADIUS) ** 2
+        vec2.sqrDist(hunter.p, world.unicorns[i].p) < (HUNTER_RADIUS + HUNTER_RADIUS) ** 2
       ) {
         hunter.riding = {
           remainingTime: 300,
@@ -200,18 +198,14 @@ export const step = (
     let b = map.bushes.length;
     for (let k = 8; k--;) {
       const e = Math.floor((a + b) / 2);
-      if (
-        map.bushes[e][1] <
-        body.p[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN
-      )
+      if (map.bushes[e][1] < body.p[1] - HUNTER_RADIUS - MAX_BUSH_RADIUS - COLLISION_SAFETY_MARGIN)
         a = e;
       else b = e;
     }
 
     while (
       map.bushes[a] &&
-      map.bushes[a][1] <=
-        body.p[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
+      map.bushes[a][1] <= body.p[1] + HUNTER_RADIUS + MAX_BUSH_RADIUS + COLLISION_SAFETY_MARGIN
     ) {
       if (
         vec2.sqrDist(map.bushes[a], body.p) <
@@ -320,5 +314,5 @@ export const createInitialState = (): WorldSnapshot => ({
   seed: 0 | (Math.random() * (1 << 16)),
   hunters: [],
   rainbowTrails: [],
-  unicorns: [],
+  unicorns: [{ id: 123, p: [0, 5], d: [0, -1] }],
 });
