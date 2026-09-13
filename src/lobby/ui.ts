@@ -25,8 +25,8 @@ export const createLobbyUi = (lobby: Lobby) => {
   const seat = (p: Player, i: number, host = false) =>
     `<li>${
       p.avatarUrl
-        ? `<img src="${p.avatarUrl}" width=48 style="border:3px solid ${getHunterColor(i)}">`
-        : `<i style="width:48px;height:48px;background:#fff;border:3px solid ${getHunterColor(i)}"></i>`
+        ? `<img src="${p.avatarUrl}" style="border-color:${getHunterColor(i)}">`
+        : `<i style="border-color:${getHunterColor(i)}"></i>`
     }${p.username}${host ? " 👑" : ""}`;
 
   const update = () => {

@@ -17,6 +17,7 @@ body.g .bar i {
   width: 10px;
   height: 10px;
   border-radius: 5px;
+  /*border: 1px solid #333;*/
 }
 body.g .bar i.me::after {
   content: "";

@@ -26,7 +26,7 @@ export const createColorPalette = () => {
 
   // ctx.fillRect(5, HUNTERS_VARIANTS[0], 1, 3);
   {
-    const N = 6;
+    const N = HUNTERS_VARIANTS.at(-1)! - HUNTERS_VARIANTS[0];
     ctx.fillStyle = "#fff";
     ctx.fillRect(6, HUNTERS_VARIANTS[0], 1, N);
     ctx.fillStyle = "#333";
@@ -99,7 +99,8 @@ export const createColorPalette = () => {
 
 export const UNICORN_VARIANTS = [1, 2, 3];
 export const HUNTERS_VARIANTS = [4, 5, 6, 7, 8, 9];
-export const getHunterColor = (i: number) =>
-  `hsl(${((i % HUNTERS_VARIANTS.length) / HUNTERS_VARIANTS.length) * 360},100%,50%)`;
 export const BUSHES_VARIANTS = [10, 11, 12];
 export const OBSTACLES_VARIANTS = [13, 14, 15];
+
+export const getHunterColor = (i: number) =>
+  `hsl(${((i % HUNTERS_VARIANTS.length) / HUNTERS_VARIANTS.length) * 360},100%,50%)`;
