@@ -165,7 +165,12 @@ export const createBot = (playerId: string, registerInput: (i: PlayerInput) => v
 
     const t =
       1 -
-      Math.min(1, (Math.abs(player.p[0] - a[0]) + Math.abs(player.p[1] - a[1])) / GRID_RESOLUTION);
+      Math.min(
+        1,
+        (Math.max(0, Math.abs(player.p[0] - a[0]) - GRID_RESOLUTION / 2) +
+          Math.max(0, Math.abs(player.p[1] - a[1]) - GRID_RESOLUTION / 2)) /
+          GRID_RESOLUTION,
+      );
     vec2.lerp(target, a, b, t);
 
     const newAngle = Math.round(
