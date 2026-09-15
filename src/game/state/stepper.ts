@@ -320,3 +320,20 @@ export const createInitialState = (): WorldSnapshot => ({
   rainbowTrails: [],
   unicorns: [{ id: 123, p: [0, 5], d: [0, -1] }],
 });
+
+// items must be sorted by y
+export const forEachInRangeY = (
+  circles: [number, number, number][],
+  minY: number,
+  maxY: number,
+  cb: (item: [number, number, number]) => void,
+) => {
+  let a = 0;
+  let b = circles.length;
+  while (a < b) {
+    const e = (a + b) >> 1;
+    if (circles[e][1] < minY) a = e + 1;
+    else b = e;
+  }
+  for (; a < circles.length && circles[a][1] <= maxY; a++) cb(circles[a]);
+};
