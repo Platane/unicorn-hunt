@@ -10,9 +10,9 @@ import {
 import { vec2 } from "../../../utils/glMatrix";
 import { hashString } from "../../../utils/hash";
 
-const GRID_HEIGHT = 60;
-const GRID_RESOLUTION = 0.6;
-const GRID_WIDTH = 30 / GRID_RESOLUTION;
+const GRID_HEIGHT = 20;
+const GRID_RESOLUTION = 0.5;
+const GRID_WIDTH = Math.ceil(30 / GRID_RESOLUTION);
 
 const snapToGrid = (v: number) => Math.floor(v / GRID_RESOLUTION) * GRID_RESOLUTION;
 
@@ -59,23 +59,23 @@ export const createBot = (playerId: string, registerInput: (i: PlayerInput) => v
 
     forEachInRangeY(
       map.bushes,
-      cy - MAX_BUSH_RADIUS - HUNTER_RADIUS / 2,
-      maxY + MAX_BUSH_RADIUS + HUNTER_RADIUS / 2,
-      (o) => markDisk(o[0], o[1], o[2] + HUNTER_RADIUS / 2, 1.5),
+      cy - MAX_BUSH_RADIUS - HUNTER_RADIUS,
+      maxY + MAX_BUSH_RADIUS + HUNTER_RADIUS,
+      (o) => markDisk(o[0], o[1], o[2] + HUNTER_RADIUS, 1.5),
     );
 
     forEachInRangeY(
       map.obstacles,
-      cy - MAX_OBSTACLE_RADIUS - HUNTER_RADIUS / 2,
-      maxY + MAX_OBSTACLE_RADIUS + HUNTER_RADIUS / 2,
-      (o) => markDisk(o[0], o[1], o[2] + HUNTER_RADIUS / 2, 2),
+      cy - MAX_OBSTACLE_RADIUS - HUNTER_RADIUS,
+      maxY + MAX_OBSTACLE_RADIUS + HUNTER_RADIUS,
+      (o) => markDisk(o[0], o[1], o[2] + HUNTER_RADIUS * 0.6, 2),
     );
 
     forEachInRangeY(
       map.bushes,
-      cy - MAX_BUSH_RADIUS - HUNTER_RADIUS / 2,
-      maxY + MAX_BUSH_RADIUS + HUNTER_RADIUS / 2,
-      (o) => markDisk(o[0], o[1], o[2], Infinity),
+      cy - MAX_BUSH_RADIUS - HUNTER_RADIUS,
+      maxY + MAX_BUSH_RADIUS + HUNTER_RADIUS,
+      (o) => markDisk(o[0], o[1], o[2] - GRID_RESOLUTION * 0.05, Infinity),
     );
 
     {
