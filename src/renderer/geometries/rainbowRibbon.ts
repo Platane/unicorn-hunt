@@ -301,7 +301,7 @@ const u = new Float32Array(2) as vec2;
 const z = new Float32Array(2) as vec2;
 
 export const createRainbowRibbonGeometry = () => {
-  const colorIndex = new Uint8Array(1 << 18);
+  const colorIndex = new Uint8Array(1 << 16);
   const positions = new Float32Array(colorIndex.length * 3);
   const normals = new Float32Array(colorIndex.length * 3);
 

@@ -263,12 +263,13 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
     //
     // rainbow ribbon
     {
-      const o = renderedTrailOffset;
+      let o = renderedTrailOffset;
+      if (o + data.length > 3 << 16) o = 0;
       let i = renderedTrailIndex;
       let offset = 0;
       for (; i < renderedWorldSnapshot.rainbowTrails.length; i++) {
         offset = fillRainbowRibbon(
-          rainbowRibbonGeometry.positions,
+          data,
           offset,
           renderedWorldSnapshot.rainbowTrails[i],
           TRAIL_RADIUS,
@@ -279,10 +280,10 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
           renderedTrailOffset = o + offset;
         }
       }
-      rainbowRibbonMesh.vertexCount = (o + offset) / 3;
+      rainbowRibbonMesh.vertexCount = Math.max(rainbowRibbonMesh.vertexCount, (o + offset) / 3);
       const { gl } = renderer;
       gl.bindBuffer(gl.ARRAY_BUFFER, rainbowRibbonMesh.positionBuffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, o * 4, rainbowRibbonGeometry.positions, 0, offset);
+      gl.bufferSubData(gl.ARRAY_BUFFER, o * 4, data, 0, offset);
     }
 
     renderer.draw();
@@ -290,6 +291,8 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
 
   return { step, getHunterScreenPos, ready: geometryPromise };
 };
+
+const data = new Float32Array(1 << 16);
 
 const cyclePoses = (poses: number[], k: number) => {
   const u = k / poses.length;
