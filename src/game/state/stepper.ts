@@ -13,7 +13,7 @@ export const STEP_DURATION = 1 / 20;
 export const HUNTER_SPEED = 2;
 export const WILD_UNICORN_SPEED = 0.6;
 export const MOUNTED_UNICORN_SPEED = 3;
-export const HUNTER_ON_TRAIL_SPEED = 3;
+export const HUNTER_ON_TRAIL_SPEED = 3.5;
 export const HUNTER_JUMP_DURATION = 16;
 
 export const HUNTER_STAGGERED_SPEED = 0.8;
