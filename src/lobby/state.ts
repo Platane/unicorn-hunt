@@ -182,7 +182,7 @@ export const createLobby = (): Lobby => {
     }));
     lobby.onChange?.();
 
-    pollTimerTimeout = setTimeout(pollLobbies);
+    pollTimerTimeout = setTimeout(pollLobbies, 10000);
   };
 
   const lobby: Lobby = {
