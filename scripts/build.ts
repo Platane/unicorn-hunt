@@ -76,59 +76,66 @@ console.log("bun build ✅");
 //
 // glsl
 {
-  const shaders = js.match(/`#version 300[^`]*`/g) ?? [];
-
-  const names = new Set([
-    "Camera",
-    "projectionMatrix",
-    "viewMatrix",
-    "lightDirection",
-    "time",
-    "outColor",
-    "normal",
-    "a_objectMatrix",
-    "qrot",
-  ]);
-  for (const shader of shaders)
-    for (const [, name] of shader.matchAll(
-      /\b(?:in|out|uniform)\s+(?:uint|uvec2|uvec3|uvec4|int|float|vec2|vec3|vec4|mat3|mat4|sampler2D)\s+([auv]_\w+)/g,
-    ))
-      names.add(name);
-
+  const shaders = [...js.matchAll(/`(#version 300[^`]*)`/g)].map(([, s]) => s);
+  const variableNames = "_abcdefghijklmnopqrstuvwxyz".split("");
+  variableNames.push(
+    ...variableNames.map((a) => Array.from({ length: 10 }, (_, i) => a + i)).flat(),
+  );
+  const externalNames = new Set();
   for (const shader of shaders) {
-    let minified = shader
-      .slice(1, -1)
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*/g, "")
+    for (const [, name] of shader.matchAll(
+      /\b(?:in|uniform)\s+(?:bool|ivec2|ivec3|ivec4|mat2|uint|uvec2|uvec3|uvec4|int|float|vec2|vec3|vec4|mat3|mat4|sampler2D|usampler2D)\s+(\w+)/g,
+    ))
+      externalNames.add(name);
+
+    // uniform block members
+    for (const [, name, body] of shader.matchAll(/\buniform\s+(\w+)\s*\{([^}]*)\}/g)) {
+      externalNames.add(name);
+
+      for (const [, name] of body.matchAll(/\w+\s+(\w+)\s*(?:\[[^\]]*\])?\s*;/g))
+        externalNames.add(name);
+    }
+  }
+
+  const nameMap = new Map();
+  for (const name of externalNames) nameMap.set(name, variableNames[nameMap.size]);
+
+  for (let originalShader of shaders) {
+    let shader = originalShader;
+
+    // remove comments
+    shader = shader.replaceAll(/\/\/.*\n/g, "\n").replaceAll(/\/\*.*\*\//g, " ");
+
+    // replace names
+    const nameMap2 = new Map(nameMap.entries());
+    for (const [, name] of shader.matchAll(
+      /\b(?:bool|ivec2|ivec3|ivec4|mat2|uint|uvec2|uvec3|uvec4|int|float|vec2|vec3|vec4|mat3|mat4|sampler2D|usampler2D|void)\s+(\w+)\s*(?:;|\(|=|\)|,)/g,
+    ))
+      if (name !== "main" && !nameMap2.has(name)) nameMap2.set(name, variableNames[nameMap2.size]);
+
+    if (nameMap2.size > 0)
+      shader = shader.replaceAll(
+        new RegExp(`(?<!\\.)\\b(${[...nameMap2.keys()].join("|")})\\b`, "g"),
+        (line, name) => line.replace(name, nameMap2.get(name)!),
+      );
+
+    // minify
+    shader = shader
       .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => (line.startsWith("#") ? "\n" + line + "\n" : line))
-      .join(" ")
-      .replace(/\s*\n\s*/g, "\n")
-      .replace(/[ \t]*([^\w\s#.])[ \t]*/g, "$1")
-      .replace(/(\d)\.0\b/g, "$1.")
+      .map((line) =>
+        line.match(/^\s*#/) ? "\n" + line.trim() + "\n" : removeWhiteSpace(line).trim(),
+      )
+      .join("")
       .trim();
 
-    // vertex shaders default to highp
-    if (minified.includes("gl_Position")) minified = minified.replace("precision highp float;", "");
-
-    js = js.replace(shader, () => "`" + minified + "`");
+    js = js.replace(originalShader, () => shader);
   }
 
-  const used = new Set(js.match(/\w+/g));
-  const map = new Map<string, string>();
-  let i = 0;
-  for (const name of names) {
-    let short;
-    do short = "z" + (i++).toString(36);
-    while (used.has(short));
-    map.set(name, short);
-  }
-
-  js = js.replace(new RegExp(`\\b(${[...map.keys()].join("|")})\\b`, "g"), (name) =>
-    map.get(name)!,
-  );
+  if (nameMap.size > 0)
+    js = js.replaceAll(
+      new RegExp(`"(${[...nameMap.keys()].join("|")})"`, "g"),
+      (_, name) => '"' + nameMap.get(name)! + '"',
+    );
 }
 
 console.log("glsl ✅");
@@ -165,7 +172,7 @@ console.log("closure compiler ✅");
 const packer = new Packer([{ data: js, type: "js", action: "eval" }], {});
 await packer.optimize(2);
 const { firstLine, secondLine } = packer.makeDecoder();
-
+js = firstLine + secondLine;
 console.log("roadroller ✅");
 
 //
@@ -174,7 +181,7 @@ console.log("roadroller ✅");
 {
   const html = minifyHtml(await Bun.file("index.html").text()).replace(
     /<script[^>]*>(<\/script>)?/,
-    () => `<style>${minifyCss(css)}</style><script>${firstLine + secondLine}</script>`,
+    () => `<style>${minifyCss(css)}</style><script>${js}</script>`,
   );
   await Bun.write(`${outDir}/index.html`, html);
 }

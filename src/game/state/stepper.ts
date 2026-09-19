@@ -37,6 +37,7 @@ const COLLISION_SAFETY_MARGIN = 0.2;
 // TODO
 // - speed boost obstacle
 // - rubber banding
+// - smaller collision radius on jump
 
 export const step = (
   map: Map,
@@ -123,8 +124,8 @@ export const step = (
           : HUNTER_SPEED;
 
     // move
-    const facing = hunter.jumping?.d ?? hunter.d;
-    vec2.scaleAndAdd(hunter.p, hunter.p, facing, speed * STEP_DURATION);
+    const direction = hunter.jumping?.d ?? hunter.d;
+    vec2.scaleAndAdd(hunter.p, hunter.p, direction, speed * STEP_DURATION);
 
     // hunter leave a trail while riding
     if (hunter.riding) {

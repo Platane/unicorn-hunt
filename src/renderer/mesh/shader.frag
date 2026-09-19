@@ -1,15 +1,15 @@
 #version 300 es
 precision highp float;
 
-in vec3 v_normal;
-in vec3 v_color;
-
 layout(std140) uniform Camera {
     mat4 projectionMatrix;
     mat4 viewMatrix;
     vec3 lightDirection;
     float time;
 };
+
+in vec3 v_normal;
+in vec3 v_color;
 
 layout(location = 0) out vec4 outColor;
 
