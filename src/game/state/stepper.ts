@@ -152,6 +152,17 @@ export const step = (
 
         world.rainbowTrails.push([[...hunter.p], [...hunter.p]]);
         world.unicorns.splice(i, 1);
+
+        while (true) {
+          const firstNonEmpty = world.rainbowTrails.findIndex((trail) => trail.length !== 0);
+          if (
+            firstNonEmpty >= 0 &&
+            world.rainbowTrails.length - firstNonEmpty > 10 &&
+            !world.hunters.some((h) => h.riding?.trailIndex === firstNonEmpty)
+          ) {
+            world.rainbowTrails[firstNonEmpty].length = 0;
+          } else break;
+        }
       }
     }
 
