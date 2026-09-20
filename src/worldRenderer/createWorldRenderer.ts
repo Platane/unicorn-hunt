@@ -247,13 +247,15 @@ export const createWorldRenderer = (canvas: HTMLCanvasElement) => {
               [...h.p, jumpHeight],
               q,
             );
-          else
+          else {
+            const period = h.onTrail ? 90 : 200;
             geometries[e.modelId].applyPose(
               e.data,
-              ...cyclePoses(HUNTER_WALKING_POSES, Date.now() / 230),
+              ...cyclePoses(HUNTER_WALKING_POSES, Date.now() / period),
               [...h.p, jumpHeight],
               q,
             );
+          }
         }
       });
 
